@@ -1,0 +1,17 @@
+{
+  "name": "ariboren",
+  "owner": {
+    "name": "Ari Borensztein"
+  },
+  "plugins": [
+    {
+      "name": "linear-claude-session-tracking",
+      "source": {
+        "source": "github",
+        "repo": "ariboren/linear-claude-session-tracking"
+      },
+      "description": "Automatically track Claude Code sessions in Linear with commits and file changes",
+      "version": "1.0.0"
+    }
+  ]
+}
