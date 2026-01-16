@@ -1,0 +1,10 @@
+{
+  "name": "plan-loop",
+  "version": "1.0.0",
+  "description": "Coordinate subagent loop to create comprehensive implementation plans with iterative review",
+  "author": {
+    "name": "Ari Borensztein"
+  },
+  "repository": "https://github.com/ariboren/claude-plugins",
+  "license": "MIT"
+}

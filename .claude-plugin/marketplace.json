@@ -19,6 +19,12 @@
       "description": "Personal custom agents",
       "version": "1.0.0",
       "category": "custom"
+    },
+    {
+      "name": "plan-loop",
+      "source": "./plan-loop",
+      "description": "Coordinate subagent loop to create comprehensive implementation plans with iterative review",
+      "version": "1.0.0"
     }
   ]
 }

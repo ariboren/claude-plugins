@@ -31,6 +31,30 @@ Automatically track Claude Code sessions in Linear with commits and file changes
 
 [View plugin →](https://github.com/ariboren/linear-claude-session-tracking)
 
+### plan-loop
+
+Coordinate subagent loop to create comprehensive implementation plans with iterative review.
+
+**Install:**
+
+```
+/plugin install plan-loop@ariboren
+```
+
+**Features:**
+
+- Structured requirements interview with users
+- Delegates all work to specialized subagents (coordinator pattern)
+- Multiple review iterations until plan is complete
+- Auto-generates plan files with architecture, implementation steps, and edge cases
+- Commits plans to git automatically
+
+**Usage:**
+
+```
+/plan-loop [optional-plan-file-path]
+```
+
 ## License
 
 MIT
