@@ -29,8 +29,6 @@ Automatically track Claude Code sessions in Linear with commits and file changes
 - Supports session resume
 - Configurable team, project, and label
 
-[View plugin →](https://github.com/ariboren/linear-claude-session-tracking)
-
 ### plan-loop
 
 Coordinate subagent loop to create comprehensive implementation plans with iterative review.
