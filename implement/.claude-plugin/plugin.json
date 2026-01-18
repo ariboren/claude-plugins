@@ -1,0 +1,10 @@
+{
+  "name": "implement",
+  "version": "1.0.0",
+  "description": "Coordinate implementation of a multi-session project using subagents",
+  "author": {
+    "name": "Ari Borensztein"
+  },
+  "repository": "https://github.com/ariboren/claude-plugins",
+  "license": "MIT"
+}

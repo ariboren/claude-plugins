@@ -25,6 +25,12 @@
       "source": "./plan-loop",
       "description": "Coordinate subagent loop to create comprehensive implementation plans with iterative review",
       "version": "1.0.0"
+    },
+    {
+      "name": "implement",
+      "source": "./implement",
+      "description": "Execute multi-session implementations with stacked PRs and agent pipeline",
+      "version": "1.0.0"
     }
   ]
 }
