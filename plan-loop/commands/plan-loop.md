@@ -112,7 +112,9 @@ Mark todo complete. Check agent output for questions—if any, use AskUserQuesti
 
 ## Phase 5: Review Loop (SUBAGENTS)
 
-Launch review subagents until complete. Do NOT review the plan yourself.
+**CRITICAL**: This loop MUST continue until the plan achieves FULL CONSENSUS—meaning a reviewer finds ZERO issues. Do NOT stop early. 2-3 reviews is typically insufficient. Expect 4-8+ iterations for complex plans.
+
+Launch review subagents repeatedly. Do NOT review the plan yourself.
 
 ### Each Review Iteration:
 
@@ -121,39 +123,65 @@ Task tool:
 - subagent_type: "Plan"
 - model: "opus"
 - prompt: |
-    Review and improve plan at: {PLAN_FILE_PATH}
+    You are a CRITICAL reviewer. Your job is to find EVERY flaw in this plan.
+
+    Review plan at: {PLAN_FILE_PATH}
 
     Original requirements:
     {REQUIREMENTS_FROM_INTERVIEW}
 
-    Review for:
-    1. Completeness - missing steps? All requirements addressed?
-    2. Correctness - errors, wrong assumptions?
-    3. Clarity - actionable, unambiguous?
-    4. Ordering - correct sequence?
-    5. Edge Cases - all identified edge cases addressed?
-    6. Dependencies - identified?
+    BE RUTHLESSLY CRITICAL. Check for:
+    1. Completeness - ANY missing steps? ALL requirements addressed? Hidden assumptions?
+    2. Correctness - ANY errors, wrong assumptions, impossible sequences?
+    3. Clarity - EVERY step actionable and unambiguous? Would a developer know exactly what to do?
+    4. Ordering - Correct sequence? Dependencies respected?
+    5. Edge Cases - ALL identified edge cases have explicit handling?
+    6. Dependencies - ALL identified? Circular dependencies?
+    7. Gaps - ANY scenario where implementation would get stuck?
+    8. Consistency - Does the plan contradict itself anywhere?
 
-    If issues found:
-    - Fix directly in plan
+    YOUR DEFAULT ASSUMPTION: The plan has issues. Look harder.
+
+    If you find ANY issue, no matter how small:
+    - Fix it directly in the plan
     - Commit with descriptive message
-    - Report: what changed, why
+    - Report: what you changed and why
+    - You MUST NOT output "PLAN_COMPLETE" if you made changes
 
-    If plan is comprehensive and needs no changes:
-    - Output exactly: "PLAN_COMPLETE"
-    - Do NOT make unnecessary changes
+    ONLY output "PLAN_COMPLETE" if you have:
+    - Read the ENTIRE plan carefully
+    - Verified EVERY requirement from the interview is addressed
+    - Found ZERO issues of any kind
+    - Confirmed the plan is AIRTIGHT and implementation-ready
+
+    Do NOT output "PLAN_COMPLETE" just because:
+    - The plan "looks good"
+    - You only found minor issues
+    - Previous reviewers approved it
+    - You're uncertain but don't see obvious problems
 
     Style: Extremely concise. Ensure "## Unresolved Questions" exists.
 
     If blocked or need user input, list questions—coordinator will ask.
 ```
 
-After each subagent:
+### Loop Logic (IMPORTANT)
 
-- Check output for "PLAN_COMPLETE" → exit loop, plan ready
-- Check for questions → use AskUserQuestion, then continue
-- Otherwise → update todo, launch next review
-- Max 5 iterations
+After each subagent completes:
+
+1. Did subagent output "PLAN_COMPLETE" with NO changes made?
+   - YES → Plan achieved consensus. Exit loop.
+   - NO → Continue to next review iteration.
+
+2. Did subagent have questions needing user input?
+   - YES → Use AskUserQuestion, then continue loop.
+
+3. Did subagent make changes?
+   - YES → Those changes need review. Launch another iteration.
+
+**DO NOT EXIT THE LOOP** until you get "PLAN_COMPLETE" from a reviewer who made ZERO changes. The goal is an airtight plan with full consensus—not just "good enough."
+
+Maximum: 10 iterations (but ask user before stopping if no consensus reached)
 
 ## Phase 6: Summary (SUBAGENT)
 
@@ -174,9 +202,9 @@ Report subagent's summary to user. Done.
 
 ## Error Handling
 
-- If you or any subagent needs feedback or is blocked due to unclear/missing requirements, use AskUserQuestion immediately. Goal: comprehensive plan that fully addresses requirements and identifies gaps before implementation.
+- If you or any subagent needs feedback or is blocked due to unclear/missing requirements, use AskUserQuestion immediately. Goal: airtight plan that fully addresses requirements and identifies gaps before implementation.
 - If user provides feedback, pass it to the next subagent
-- After 5 iterations without "PLAN_COMPLETE", ask user for guidance
+- After 10 iterations without consensus, ask user for guidance—but emphasize that stopping without "PLAN_COMPLETE" means the plan may have unresolved issues
 
 ---
 
