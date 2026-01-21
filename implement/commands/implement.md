@@ -1,13 +1,24 @@
 ---
 description: Coordinate implementation of a multi-session project using subagents
 argument-hint: <session-plan-path>
-allowed-tools: Task, Bash, TodoWrite, AskUserQuestion
+allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill
 model: opus
 ---
 
 # Implement: Session Implementation Pipeline
 
 You are a **coordinator only**. Orchestrate a 5-step agent pipeline for each session—do NOT implement, review, or document anything yourself.
+
+## Optional Dependencies
+
+For best results, install these Anthropic plugins:
+
+```
+/plugin install code-simplifier@anthropic
+/plugin install code-review@anthropic
+```
+
+Steps 2 (Simplify) and 3 (Review) use these if available. Without them, simplify is skipped and review falls back to a general-purpose agent.
 
 ## Coordinator Rules
 
@@ -37,7 +48,7 @@ git checkout session-1-feature-name && git checkout -b session-2-feature-name
 git checkout session-{N-1}-feature-name && git checkout -b session-N-feature-name
 ```
 
-Create PR after each session completes, targeting the previous session's branch (or main for session 1).
+Create draft PR immediately after implementation (Step 1), targeting the previous session's branch (or main for session 1). Mark ready after all steps complete.
 
 ## Pipeline: 5 Steps Per Session
 
@@ -60,26 +71,41 @@ Task tool:
     Report what you implemented and any issues encountered.
 ```
 
+**After Step 1 completes:** Push branch and create draft PR immediately.
+
+```bash
+git push -u origin {BRANCH_NAME}
+gh pr create --draft --base {TARGET_BRANCH} --title "Session N: {description}" --body "Implementation in progress..."
+```
+
+This ensures the PR exists before refinement steps, allowing incremental review.
+
 ### Step 2: Simplify
+
+Use the `code-simplifier` agent if installed. If unavailable, skip this step.
+
+**Install:** `/plugin install code-simplifier@anthropic`
 
 ```
 Task tool:
 - subagent_type: "code-simplifier"
-- model: "sonnet"
-- prompt: |
-    Review and simplify the code changes from the recent implementation.
-
-    Focus on:
-    - Removing unnecessary complexity
-    - Improving readability
-    - Eliminating duplication
-    - Ensuring consistent style
-
-    Make changes directly. Commit if you made improvements.
-    Report what you simplified (or confirm code is already clean).
+- prompt: "Simplify the recently modified code in this session."
 ```
 
+The agent reviews recently modified code for clarity and maintainability. If unavailable, proceed to Step 3—simplification is a nice-to-have refinement.
+
 ### Step 3: Review
+
+Use the `/code-review` skill if installed:
+
+**Install:** `/plugin install code-review@anthropic`
+
+```
+Skill tool:
+- skill: "code-review"
+```
+
+If `/code-review` is not installed, fall back to manual review:
 
 ```
 Task tool:
@@ -101,7 +127,7 @@ Task tool:
 
 ### Step 4: Fixup (Conditional)
 
-Only run if Step 3 outputs "REVIEW_FAILED":
+Only run if Step 3 outputs "REVIEW_FAILED" or review found issues:
 
 ```
 Task tool:
@@ -147,13 +173,13 @@ Task tool:
 
 After Step 5:
 
-1. Push the branch
-2. Create PR targeting the previous session's branch (or main for session 1)
+1. Push final commits to update the PR
+2. Mark PR as ready for review
 3. Report session complete with PR link
 
 ```bash
-git push -u origin {BRANCH_NAME}
-gh pr create --base {TARGET_BRANCH} --title "Session N: {description}" --body "..."
+git push
+gh pr ready
 ```
 
 ## Todo Tracking
@@ -162,11 +188,12 @@ Create todos at session start:
 
 ```
 - [ ] Step 1: Implementation
-- [ ] Step 2: Simplify
+- [ ] Create draft PR
+- [ ] Step 2: Simplify (if /simplify available)
 - [ ] Step 3: Review
 - [ ] Step 4: Fixup (if needed)
 - [ ] Step 5: Documentation
-- [ ] Create PR
+- [ ] Mark PR ready
 ```
 
 Update as each step completes.

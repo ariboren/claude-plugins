@@ -1,0 +1,30 @@
+{
+  "name": "pro",
+  "version": "1.0.0",
+  "description": "Professional specialized agents",
+  "author": {
+    "name": "Ari Borensztein"
+  },
+  "repository": "https://github.com/ariboren/claude-plugins",
+  "license": "MIT",
+  "agents": [
+    "./agents/a11y-pro.md",
+    "./agents/api-dev.md",
+    "./agents/backend-dev.md",
+    "./agents/game-pro.md",
+    "./agents/javascript-pro.md",
+    "./agents/mobile-pro.md",
+    "./agents/pen-tester.md",
+    "./agents/react-native-pro.md",
+    "./agents/react-pro.md",
+    "./agents/refactoring-pro.md",
+    "./agents/root-cause-analyzer.md",
+    "./agents/security-auditor.md",
+    "./agents/security-engineer.md",
+    "./agents/seo-pro.md",
+    "./agents/sql-pro.md",
+    "./agents/swift-pro.md",
+    "./agents/typescript-pro.md",
+    "./agents/ui-designer.md"
+  ]
+}

@@ -14,11 +14,10 @@
       "version": "1.0.0"
     },
     {
-      "name": "custom",
-      "source": "./custom",
-      "description": "Personal custom agents",
-      "version": "1.0.0",
-      "category": "custom"
+      "name": "pro",
+      "source": "./pro",
+      "description": "Professional specialized agents",
+      "version": "1.0.0"
     },
     {
       "name": "plan-loop",
