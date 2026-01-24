@@ -74,7 +74,8 @@ Save the subagent's requirements output—you'll pass it to planning subagents.
 1. Determine plan file path:
    - Use `$ARGUMENTS` if provided
    - Otherwise: `docs/plans/PLAN-{objective-slug}.md`
-2. Create todo list: "Create plan", "Review 1", "Review 2", etc.
+2. Create todo list with ONLY: "Create plan", "Review loop"
+   - Do NOT pre-schedule individual reviews—the loop runs until consensus
 
 ## Phase 4: Create Initial Plan (SUBAGENT)
 
@@ -108,13 +109,17 @@ Task tool:
     If blocked or need clarification, list your questions—coordinator will ask user.
 ```
 
-Mark todo complete. Check agent output for questions—if any, use AskUserQuestion then relaunch.
+Mark "Create plan" complete. Check agent output for questions—if any, use AskUserQuestion then relaunch.
+
+Then proceed to Phase 5 (the review loop).
 
 ## Phase 5: Review Loop (SUBAGENTS)
 
-**CRITICAL**: This loop MUST continue until the plan achieves FULL CONSENSUS—meaning a reviewer finds ZERO issues. Do NOT stop early. 2-3 reviews is typically insufficient. Expect 4-8+ iterations for complex plans.
+⚠️ **THIS IS A LOOP. YOU MUST ITERATE.**
 
-Launch review subagents repeatedly. Do NOT review the plan yourself.
+Do NOT pre-schedule a fixed number of reviews. You will launch review subagents ONE AT A TIME, checking after each one whether to continue. The loop ends ONLY when a reviewer outputs "PLAN_COMPLETE" having made ZERO changes.
+
+Expect 4-8+ iterations. 2-3 is almost never sufficient.
 
 ### Each Review Iteration:
 
@@ -165,23 +170,25 @@ Task tool:
     If blocked or need user input, list questions—coordinator will ask.
 ```
 
-### Loop Logic (IMPORTANT)
+### Loop Logic (MANDATORY)
 
-After each subagent completes:
+```
+iteration = 0
+REPEAT:
+    iteration += 1
+    Launch review subagent (above)
 
-1. Did subagent output "PLAN_COMPLETE" with NO changes made?
-   - YES → Plan achieved consensus. Exit loop.
-   - NO → Continue to next review iteration.
+    IF subagent had questions → AskUserQuestion → GOTO REPEAT
+    IF subagent made changes → GOTO REPEAT
+    IF subagent output "PLAN_COMPLETE" with ZERO changes → EXIT LOOP ✓
+    IF iteration >= 10 → ask user for guidance, then GOTO REPEAT or EXIT
 
-2. Did subagent have questions needing user input?
-   - YES → Use AskUserQuestion, then continue loop.
+    GOTO REPEAT
+```
 
-3. Did subagent make changes?
-   - YES → Those changes need review. Launch another iteration.
+**YOU MUST KEEP LAUNCHING REVIEW SUBAGENTS** until one returns "PLAN_COMPLETE" having made ZERO changes. This typically takes 4-8 iterations. Do NOT stop after 2-3 reviews.
 
-**DO NOT EXIT THE LOOP** until you get "PLAN_COMPLETE" from a reviewer who made ZERO changes. The goal is an airtight plan with full consensus—not just "good enough."
-
-Maximum: 10 iterations (but ask user before stopping if no consensus reached)
+When loop exits: Mark "Review loop" complete, then proceed to Phase 6.
 
 ## Phase 6: Summary (SUBAGENT)
 
