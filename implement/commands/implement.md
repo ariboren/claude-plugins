@@ -63,22 +63,23 @@ Step 1.5 (PR creation) is mandatory—do NOT skip it.
 
 ### Step 1: Implementation
 
-**Select the best agent** based on the session's domain. Match expertise to the work:
+**Select the best available agent** for the session's domain.
 
-| Domain               | Agent                              |
-| -------------------- | ---------------------------------- |
-| React Native         | `pro:react-native-pro`             |
-| React/Next.js        | `pro:react-pro`                    |
-| TypeScript (general) | `pro:typescript-pro`               |
-| Backend/API          | `pro:backend-dev` or `pro:api-dev` |
-| Database/SQL         | `pro:sql-pro`                      |
-| iOS/Swift            | `pro:swift-pro`                    |
-| Security             | `pro:security-engineer`            |
-| UI/Design            | `pro:ui-designer`                  |
-| Refactoring-heavy    | `pro:refactoring-pro`              |
-| Mixed/Unknown        | `general-purpose`                  |
+Read the session plan to understand its primary domain, then select an agent:
 
-If the session spans multiple domains, prefer the primary domain or use `general-purpose`.
+1. **Try a domain specialist first** (if installed):
+   - React Native → `pro:react-native-pro`
+   - React/Next.js → `pro:react-pro`
+   - TypeScript → `pro:typescript-pro`
+   - Backend/API → `pro:backend-dev`
+   - Database/SQL → `pro:sql-pro`
+   - iOS/Swift → `pro:swift-pro`
+
+2. **If the specialist fails** (agent not found error), retry with `general-purpose`
+
+3. **Use `general-purpose` directly** if domain is mixed or unclear
+
+Note: Specialized agents require separate plugin installation. `general-purpose` is always available.
 
 ```
 Task tool:
