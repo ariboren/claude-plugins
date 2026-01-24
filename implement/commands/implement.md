@@ -7,7 +7,7 @@ model: opus
 
 # Implement: Session Implementation Pipeline
 
-You are a **coordinator only**. Orchestrate a 5-step agent pipeline for each session—do NOT implement, review, or document anything yourself.
+You are a **coordinator only**. Orchestrate a 6-step pipeline for each session, then loop to the next session—do NOT implement, review, or document anything yourself.
 
 ## Optional Dependencies
 
@@ -27,11 +27,15 @@ Steps 2 (Simplify) and 3 (Review) use these if available. Without them, simplify
 - Keep messages brief—state what you're doing and launch the next agent
 - Each step uses a **distinct agent** for fresh context
 
-## Setup
+## Setup (Per Session)
 
-1. If `$ARGUMENTS` provided, use it as the session plan path
-2. Otherwise, ask user for the session plan path (e.g., `docs/projects/NN-feature/SESSION_1_PLAN.md`)
-3. Create stacked branch for this session (see Git Workflow below)
+Run this setup at the START of each session:
+
+1. Determine session plan path:
+   - First session: use `$ARGUMENTS` if provided, otherwise ask user
+   - Subsequent sessions: derive from project structure (SESSION_2.md, etc.)
+2. Create stacked branch for this session (see Git Workflow below)
+3. Create todo list for this session's 6 steps
 
 ## Git Workflow: Stacked PRs
 
@@ -50,9 +54,12 @@ git checkout session-{N-1}-feature-name && git checkout -b session-N-feature-nam
 
 Create draft PR immediately after implementation (Step 1), targeting the previous session's branch (or main for session 1). Mark ready after all steps complete.
 
-## Pipeline: 5 Steps Per Session
+## Pipeline: 6 Steps Per Session
 
-Execute these steps sequentially. Each step is a **separate agent** for isolation.
+⚠️ **YOU MUST EXECUTE ALL 6 STEPS FOR EACH SESSION, THEN CHECK FOR MORE SESSIONS.**
+
+Execute steps sequentially. Each step is a **separate agent** for isolation.
+Step 1.5 (PR creation) is mandatory—do NOT skip it.
 
 ### Step 1: Implementation
 
@@ -71,12 +78,19 @@ Task tool:
     Report what you implemented and any issues encountered.
 ```
 
-**After Step 1 completes:** Push branch and create draft PR immediately.
+### Step 1.5: Create Draft PR (MANDATORY)
+
+**DO NOT SKIP THIS STEP.** Create the PR immediately after implementation, before any refinement.
 
 ```bash
 git push -u origin {BRANCH_NAME}
 gh pr create --draft --base {TARGET_BRANCH} --title "Session N: {description}" --body "Implementation in progress..."
 ```
+
+Target branch:
+
+- Session 1 → `main`
+- Session N → `session-{N-1}-feature-name`
 
 This ensures the PR exists before refinement steps, allowing incremental review.
 
@@ -182,21 +196,42 @@ git push
 gh pr ready
 ```
 
-## Todo Tracking
+## Multi-Session Loop (MANDATORY)
 
-Create todos at session start:
+⚠️ **AFTER COMPLETING A SESSION, YOU MUST CHECK FOR MORE SESSIONS.**
 
 ```
+REPEAT FOR EACH SESSION:
+    1. Complete all 6 steps for current session (including Step 1.5 PR creation)
+    2. Mark session complete
+
+    CHECK: Are there more session plans?
+    - Look for SESSION_{N+1}.md, SESSION_{N+1}_PLAN.md, or similar
+    - Check the project's session prompts file if it exists
+
+    IF more sessions exist → Start next session (return to Setup, create new branch)
+    IF no more sessions → EXIT LOOP ✓
+```
+
+Do NOT stop after the first session unless it's explicitly the only session. Most multi-session projects have 2-5+ sessions.
+
+## Todo Tracking
+
+Create todos at the START of each session. Update as steps complete.
+
+```
+Session N:
 - [ ] Step 1: Implementation
-- [ ] Create draft PR
-- [ ] Step 2: Simplify (if /simplify available)
+- [ ] Step 1.5: Create draft PR ← MANDATORY, do not skip
+- [ ] Step 2: Simplify
 - [ ] Step 3: Review
 - [ ] Step 4: Fixup (if needed)
 - [ ] Step 5: Documentation
 - [ ] Mark PR ready
+- [ ] Check for next session
 ```
 
-Update as each step completes.
+When starting a new session, add a new todo group for that session.
 
 ## Error Handling
 
