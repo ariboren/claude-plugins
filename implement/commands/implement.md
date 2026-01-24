@@ -63,9 +63,26 @@ Step 1.5 (PR creation) is mandatory—do NOT skip it.
 
 ### Step 1: Implementation
 
+**Select the best agent** based on the session's domain. Match expertise to the work:
+
+| Domain               | Agent                              |
+| -------------------- | ---------------------------------- |
+| React Native         | `pro:react-native-pro`             |
+| React/Next.js        | `pro:react-pro`                    |
+| TypeScript (general) | `pro:typescript-pro`               |
+| Backend/API          | `pro:backend-dev` or `pro:api-dev` |
+| Database/SQL         | `pro:sql-pro`                      |
+| iOS/Swift            | `pro:swift-pro`                    |
+| Security             | `pro:security-engineer`            |
+| UI/Design            | `pro:ui-designer`                  |
+| Refactoring-heavy    | `pro:refactoring-pro`              |
+| Mixed/Unknown        | `general-purpose`                  |
+
+If the session spans multiple domains, prefer the primary domain or use `general-purpose`.
+
 ```
 Task tool:
-- subagent_type: "general-purpose"
+- subagent_type: {SELECTED_AGENT}
 - model: "opus"
 - prompt: |
     Implement the session plan at: {SESSION_PLAN_PATH}
@@ -141,11 +158,13 @@ Task tool:
 
 ### Step 4: Fixup (Conditional)
 
-Only run if Step 3 outputs "REVIEW_FAILED" or review found issues:
+Only run if Step 3 outputs "REVIEW_FAILED" or review found issues.
+
+Use the **same specialized agent** as Step 1 for domain consistency.
 
 ```
 Task tool:
-- subagent_type: "general-purpose"
+- subagent_type: {SAME_AGENT_AS_STEP_1}
 - model: "opus"
 - prompt: |
     Fix the issues identified in the review:
