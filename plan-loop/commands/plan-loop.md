@@ -69,13 +69,34 @@ Task tool:
 
 Save the subagent's requirements output—you'll pass it to planning subagents.
 
-## Phase 3: Initialize
+## Phase 3: Initialize (SUBAGENT)
 
-1. Determine plan file path:
-   - Use `$ARGUMENTS` if provided
-   - Otherwise: `docs/plans/PLAN-{objective-slug}.md`
-2. Create todo list with ONLY: "Create plan", "Review loop"
-   - Do NOT pre-schedule individual reviews—the loop runs until consensus
+Determine plan file path and project conventions. Do NOT hardcode paths—discover them.
+
+```
+Task tool:
+- subagent_type: "Explore"
+- prompt: |
+    Determine where to write the implementation plan for: {OBJECTIVE}
+
+    1. If $ARGUMENTS was provided, use that path exactly: {$ARGUMENTS or "not provided"}
+
+    2. Otherwise, search for project documentation conventions:
+       - Check CLAUDE.md, docs/CLAUDE.md, .claude/CLAUDE.md for naming schemes
+       - Look at existing docs/, plans/, or similar directories for patterns
+       - Note any documented methodologies for structuring documentation
+
+    3. Report:
+       - Recommended file path (following project conventions, or reasonable default)
+       - Any relevant conventions found (naming schemes, required sections, structure)
+       - If project has specific documentation methodology, summarize it briefly
+```
+
+Use the subagent's recommended path and conventions. Pass any discovered methodology to planning subagents.
+
+Create todo list with ONLY: "Create plan", "Review loop"
+
+- Do NOT pre-schedule individual reviews—the loop runs until consensus
 
 ## Phase 4: Create Initial Plan (SUBAGENT)
 
@@ -92,7 +113,9 @@ Task tool:
 
     Write plan to: {PLAN_FILE_PATH}
 
-    Include:
+    {IF CONVENTIONS DISCOVERED: "Follow these project conventions: {CONVENTIONS}"}
+
+    Default sections (adapt to project conventions if they specify otherwise):
     1. Overview - what we're building
     2. Architecture - components, interactions
     3. Implementation Steps - numbered, actionable
