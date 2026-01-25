@@ -1,6 +1,6 @@
 {
   "name": "pro",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Professional specialized agents",
   "author": {
     "name": "Ari Borensztein"
@@ -15,6 +15,7 @@
     "./agents/javascript-pro.md",
     "./agents/mobile-pro.md",
     "./agents/pen-tester.md",
+    "./agents/prompt-pro.md",
     "./agents/react-native-pro.md",
     "./agents/react-pro.md",
     "./agents/refactoring-pro.md",
