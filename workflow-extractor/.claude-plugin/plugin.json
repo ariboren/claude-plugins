@@ -6,5 +6,6 @@
     "name": "Ari Borensztein"
   },
   "repository": "https://github.com/ariboren/claude-plugins",
-  "license": "MIT"
+  "license": "MIT",
+  "skills": ["./skills/workflow-extractor/SKILL.md"]
 }
