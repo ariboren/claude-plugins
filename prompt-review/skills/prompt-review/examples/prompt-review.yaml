@@ -1,0 +1,27 @@
+# .prompt-review.yaml
+# Place this in your project root to configure the prompt review skill
+
+# Glob patterns to find prompt files in your codebase
+prompt_patterns:
+    - "**/*prompt*.ts"
+    - "**/*prompt*.py"
+    - "**/*prompt*.js"
+    - "**/prompts/**/*.ts"
+    - "**/prompts/**/*.py"
+
+# Directory where review files are stored
+# Reviews will be named: {original_name}_review.md
+reviews_dir: ".prompt-review"
+
+# Optional: Documentation file to update alongside source changes
+# Set to null to skip documentation updates
+documentation_file: null
+# documentation_file: "docs/PROMPTS.md"
+
+# Auto-populated by the skill during scanning
+# You can also manually add prompts here
+discovered_prompts:
+    # - path: "src/prompts/summarize.ts"
+    #   function: "buildSummaryPrompt"
+    #   description: "Summarizes long text"
+    #   last_reviewed: "2024-01-15"
