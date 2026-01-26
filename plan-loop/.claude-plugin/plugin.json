@@ -1,6 +1,6 @@
 {
   "name": "plan-loop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Multi-iteration planning loop for large/complex implementations with auto-invocation",
   "author": {
     "name": "Ari Borensztein"

@@ -1,6 +1,6 @@
 {
   "name": "prompt-review",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Review and improve LLM prompts using a multi-agent workflow with progressive setup, interview-based review file creation, and a 5-step improvement pipeline",
   "author": {
     "name": "Ari Borensztein"
