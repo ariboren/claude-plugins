@@ -30,6 +30,18 @@
       "source": "./implement",
       "description": "Execute multi-session implementations with stacked PRs and agent pipeline",
       "version": "1.1.0"
+    },
+    {
+      "name": "workflow-extractor",
+      "source": "./workflow-extractor",
+      "description": "Automatically detect and extract reusable workflow skills from ad-hoc multi-step processes that emerge during Claude sessions",
+      "version": "1.0.0"
+    },
+    {
+      "name": "prompt-review",
+      "source": "./prompt-review",
+      "description": "Review and improve LLM prompts using a multi-agent workflow with progressive setup, interview-based review file creation, and a 5-step improvement pipeline",
+      "version": "1.0.0"
     }
   ]
 }
