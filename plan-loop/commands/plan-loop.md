@@ -1,7 +1,12 @@
 ---
-description: Coordinate subagent loop to create comprehensive implementation plans
-argument-hint: [plan-file-path]
-allowed-tools: Task, Bash, TodoWrite, AskUserQuestion
+name: plan-loop
+description: |
+  Multi-iteration planning loop for large/complex implementations. Auto-invoked when: task
+  spans multiple sessions, requires phased execution, involves cross-cutting changes, or
+  user asks for comprehensive planning. Creates implementation-ready plans through iterative
+  subagent review. Keywords: plan, spec, design, breakdown, phases, roadmap, multi-session.
+argument-hint: <plan-file-path>
+allowed-tools: Task, TodoWrite, AskUserQuestion
 model: opus
 ---
 
@@ -79,7 +84,7 @@ Task tool:
 - prompt: |
     Determine where to write the implementation plan for: {OBJECTIVE}
 
-    1. If $ARGUMENTS was provided, use that path exactly: {$ARGUMENTS or "not provided"}
+    1. If ARGUMENTS was provided, use that path exactly: {ARGUMENTS or "not provided"}
 
     2. Otherwise, search for project documentation conventions:
        - Check CLAUDE.md, docs/CLAUDE.md, .claude/CLAUDE.md for naming schemes
@@ -127,7 +132,7 @@ Task tool:
     Style: Extremely concise. Sacrifice grammar for brevity.
     Include file paths, function names, concrete details.
 
-    Commit the plan to git when done.
+    Do NOT commit yet—changes will be squashed at end of review loop.
 
     If blocked or need clarification, list your questions—coordinator will ask user.
 ```
@@ -172,8 +177,7 @@ Task tool:
 
     If you find ANY issue, no matter how small:
     - Fix it directly in the plan
-    - Commit with descriptive message
-    - Report: what you changed and why
+    - Report: what you changed and why (do NOT commit—squash at end)
     - You MUST NOT output "PLAN_COMPLETE" if you made changes
 
     ONLY output "PLAN_COMPLETE" if you have:
@@ -211,7 +215,14 @@ REPEAT:
 
 **YOU MUST KEEP LAUNCHING REVIEW SUBAGENTS** until one returns "PLAN_COMPLETE" having made ZERO changes. This typically takes 4-8 iterations. Do NOT stop after 2-3 reviews.
 
-When loop exits: Mark "Review loop" complete, then proceed to Phase 6.
+When loop exits: Mark "Review loop" complete, commit the plan, then proceed to Phase 6.
+
+**Commit (squash all changes):**
+
+```bash
+git add {PLAN_FILE_PATH}
+git commit -m "Add implementation plan: {OBJECTIVE}"
+```
 
 ## Phase 6: Summary (SUBAGENT)
 

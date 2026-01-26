@@ -1,8 +1,13 @@
 ---
-description: Coordinate implementation of a multi-session project using subagents
+name: implement
+description: |
+  Execute session plans using a 6-step subagent pipeline. Use when: (1) you have a session
+  plan file (SESSION_*.md), (2) implementing a planned multi-session project, (3) user says
+  "implement the plan" or "run the session." Creates stacked PRs per session.
 argument-hint: <session-plan-path>
-allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill
+allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill, Read, Glob
 model: opus
+disable-model-invocation: true
 ---
 
 # Implement: Session Implementation Pipeline
@@ -22,10 +27,12 @@ Steps 2 (Simplify) and 3 (Review) use these if available. Without them, simplify
 
 ## Coordinator Rules
 
-- **NEVER** read code, write code, or analyze implementations yourself
+- **MAY** read session plans and project structure for coordination (light reads only)
+- **NEVER** read full source files, write code, or analyze implementations yourself
 - **ONLY** use Task tool to launch agents, TodoWrite to track progress, Bash for git/PR operations
 - Keep messages brief—state what you're doing and launch the next agent
 - Each step uses a **distinct agent** for fresh context
+- **Goal**: Complete workflow with NO COMPACTION—delegate heavy work to subagents
 
 ## Setup (Per Session)
 
@@ -255,9 +262,21 @@ When starting a new session, add a new todo group for that session.
 
 ## Error Handling
 
+**Agent errors:**
+
 - If any agent reports being blocked, use AskUserQuestion to get guidance
 - If tests fail repeatedly, ask user whether to proceed or abort
 - After 3 fixup cycles without REVIEW_PASSED, escalate to user
+- If specialized agent not found, retry with `general-purpose`
+
+**Git/PR errors:**
+
+- **Branch conflict**: Append timestamp suffix (e.g., `session-1-feature-20240126`), retry once
+- **PR creation fails**: Report error, provide manual command for user to run
+- **Push rejected**: Pull with rebase, retry once, then ask user
+- **Not logged into gh**: Ask user to run `gh auth login`
+
+Never force-push. Never amend commits from previous sessions.
 
 ---
 
