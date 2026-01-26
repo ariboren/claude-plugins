@@ -1,0 +1,10 @@
+{
+  "name": "workflow-extractor",
+  "version": "1.0.0",
+  "description": "Automatically detect and extract reusable workflow skills from ad-hoc multi-step processes that emerge during Claude sessions",
+  "author": {
+    "name": "Ari Borensztein"
+  },
+  "repository": "https://github.com/ariboren/claude-plugins",
+  "license": "MIT"
+}
