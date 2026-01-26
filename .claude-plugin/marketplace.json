@@ -1,6 +1,6 @@
 {
   "name": "ariboren",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "owner": {
     "name": "Ari Borensztein"
   },
@@ -18,31 +18,31 @@
       "name": "pro",
       "source": "./pro",
       "description": "Professional specialized agents with contextual skills",
-      "version": "1.4.0"
+      "version": "1.4.1"
     },
     {
       "name": "plan-loop",
       "source": "./plan-loop",
       "description": "Coordinate subagent loop to create comprehensive implementation plans with iterative review",
-      "version": "1.2.1"
+      "version": "1.2.2"
     },
     {
       "name": "implement",
       "source": "./implement",
       "description": "Execute multi-session implementations with stacked PRs and agent pipeline",
-      "version": "1.2.1"
+      "version": "1.2.2"
     },
     {
       "name": "workflow-extractor",
       "source": "./workflow-extractor",
       "description": "Automatically detect and extract reusable workflow skills from ad-hoc multi-step processes that emerge during Claude sessions",
-      "version": "1.0.1"
+      "version": "1.0.2"
     },
     {
       "name": "prompt-review",
       "source": "./prompt-review",
       "description": "Review and improve LLM prompts using a multi-agent workflow with progressive setup, interview-based review file creation, and a 5-step improvement pipeline",
-      "version": "1.0.1"
+      "version": "1.0.2"
     }
   ]
 }

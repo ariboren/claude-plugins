@@ -1,11 +1,10 @@
 {
   "name": "implement",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Execute session plans using a 6-step subagent pipeline with stacked PRs",
   "author": {
     "name": "Ari Borensztein"
   },
   "repository": "https://github.com/ariboren/claude-plugins",
-  "license": "MIT",
-  "skills": ["./skills/implement/SKILL.md"]
+  "license": "MIT"
 }

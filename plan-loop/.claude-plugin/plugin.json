@@ -1,11 +1,10 @@
 {
   "name": "plan-loop",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Multi-iteration planning loop for large/complex implementations with auto-invocation",
   "author": {
     "name": "Ari Borensztein"
   },
   "repository": "https://github.com/ariboren/claude-plugins",
-  "license": "MIT",
-  "skills": ["./skills/plan-loop/SKILL.md"]
+  "license": "MIT"
 }
