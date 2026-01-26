@@ -1,7 +1,7 @@
 {
   "name": "implement",
-  "version": "1.1.0",
-  "description": "Coordinate implementation of a multi-session project using subagents",
+  "version": "1.2.0",
+  "description": "Execute session plans using a 6-step subagent pipeline with stacked PRs",
   "author": {
     "name": "Ari Borensztein"
   },
