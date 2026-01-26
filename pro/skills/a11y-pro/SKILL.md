@@ -1,6 +1,7 @@
 ---
 name: a11y-pro
 description: Accessibility testing expertise for WCAG compliance, screen reader compatibility, keyboard navigation, and assistive technology integration. Use when auditing accessibility, implementing ARIA, or ensuring inclusive design.
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Accessibility Expertise

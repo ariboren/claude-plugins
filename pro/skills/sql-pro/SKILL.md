@@ -1,6 +1,7 @@
 ---
 name: sql-pro
 description: SQL expertise for query optimization, database design, and performance tuning across PostgreSQL, MySQL, SQL Server, and Oracle. Use when writing complex queries, optimizing performance, or designing schemas.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # SQL Expertise

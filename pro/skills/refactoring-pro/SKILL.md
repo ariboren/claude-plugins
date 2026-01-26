@@ -1,6 +1,7 @@
 ---
 name: refactoring-pro
 description: Code refactoring expertise for safe transformations, design pattern application, and complexity reduction. Use when improving code structure, reducing technical debt, or applying design patterns.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Refactoring Expertise

@@ -1,6 +1,7 @@
 ---
 name: backend-dev
 description: Backend development expertise for scalable APIs, microservices architecture, database design, and server-side performance. Use when building APIs, implementing authentication, designing database schemas, or optimizing server performance.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Backend Development Expertise

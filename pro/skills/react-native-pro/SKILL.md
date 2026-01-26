@@ -2,6 +2,7 @@
 name: react-native-pro
 description: React Native performance optimization, Hermes engine, native modules, and cross-platform patterns. Use when debugging jank/FPS issues, optimizing bundle size, fixing memory leaks, or implementing React Native features.
 skills: react-native-best-practices
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # React Native Expertise

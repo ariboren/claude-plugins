@@ -1,6 +1,7 @@
 ---
 name: game-pro
 description: Game development expertise for engine programming, graphics optimization, physics simulation, and multiplayer networking. Use when building games, optimizing performance, implementing game mechanics, or designing game architecture.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Game Development Expertise

@@ -1,6 +1,7 @@
 ---
 name: pen-tester
 description: Penetration testing expertise for ethical hacking, vulnerability assessment, and security testing. Use when conducting security assessments, identifying vulnerabilities, or validating security controls.
+allowed-tools: Read, Grep, Glob, Bash
 ---
 
 # Penetration Testing Expertise

@@ -1,6 +1,7 @@
 ---
 name: api-dev
 description: API architecture expertise for REST and GraphQL design, OpenAPI specifications, versioning strategies, and developer experience. Use when designing APIs, writing documentation, or implementing authentication patterns.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # API Design Expertise

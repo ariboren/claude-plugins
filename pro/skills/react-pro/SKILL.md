@@ -1,6 +1,7 @@
 ---
 name: react-pro
 description: React 18+ expertise for modern patterns, performance optimization, server components, and production architectures. Use when building React applications, optimizing renders, or implementing advanced patterns.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # React Expertise

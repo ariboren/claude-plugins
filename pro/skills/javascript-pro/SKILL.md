@@ -1,6 +1,7 @@
 ---
 name: javascript-pro
 description: Modern JavaScript ES2023+ expertise for asynchronous programming, functional patterns, and full-stack development. Use when writing JavaScript, optimizing performance, or working with Node.js and browser APIs.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # JavaScript Expertise

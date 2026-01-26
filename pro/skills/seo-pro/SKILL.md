@@ -1,6 +1,7 @@
 ---
 name: seo-pro
 description: SEO expertise for technical optimization, content strategy, and search rankings. Use when optimizing for search engines, implementing structured data, or improving organic traffic.
+allowed-tools: Read, Grep, Glob, WebFetch, WebSearch
 ---
 
 # SEO Expertise

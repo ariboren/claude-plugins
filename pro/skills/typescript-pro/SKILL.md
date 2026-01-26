@@ -1,6 +1,7 @@
 ---
 name: typescript-pro
 description: TypeScript expertise for advanced type system usage, full-stack type safety, and build optimization. Use when working with TypeScript, implementing type-safe patterns, or optimizing builds.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # TypeScript Expertise

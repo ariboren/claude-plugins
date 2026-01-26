@@ -1,6 +1,7 @@
 ---
 name: swift-pro
 description: Swift 5.9+ expertise for async/await, SwiftUI, protocol-oriented programming, and Apple platform development. Use when building iOS/macOS apps, implementing Swift patterns, or optimizing performance.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Swift Expertise

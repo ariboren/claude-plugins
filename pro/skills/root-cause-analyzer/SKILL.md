@@ -1,6 +1,7 @@
 ---
 name: root-cause-analyzer
 description: Debugging expertise for systematic investigation, root cause identification, and comprehensive analysis. Use when investigating bugs, errors, unexpected behavior, or test failures.
+allowed-tools: Glob, Grep, Read, WebFetch, TodoWrite, WebSearch, Skill
 ---
 
 # Root Cause Analysis Expertise

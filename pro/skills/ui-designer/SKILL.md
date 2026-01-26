@@ -1,6 +1,7 @@
 ---
 name: ui-designer
 description: UI design expertise for visual design, interaction patterns, and design systems. Use when designing interfaces, implementing design systems, or improving user experience.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # UI Design Expertise

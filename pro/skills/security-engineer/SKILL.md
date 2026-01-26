@@ -1,6 +1,7 @@
 ---
 name: security-engineer
 description: Infrastructure security expertise for DevSecOps, cloud security, and zero-trust architecture. Use when implementing security controls, hardening infrastructure, or building security into CI/CD pipelines.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Security Engineering Expertise

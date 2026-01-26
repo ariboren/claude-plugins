@@ -1,6 +1,7 @@
 ---
 name: mobile-pro
 description: Mobile app development expertise for iOS and Android, native and cross-platform frameworks, performance optimization, and platform guidelines. Use when building mobile apps, optimizing performance, or implementing platform-specific features.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Mobile Development Expertise

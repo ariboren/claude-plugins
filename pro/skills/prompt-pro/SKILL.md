@@ -1,6 +1,7 @@
 ---
 name: prompt-pro
 description: Prompt engineering expertise for LLM interactions, agent prompting, few-shot learning, chain-of-thought reasoning, and production prompt systems. Use when designing prompts, writing skills, optimizing LLM outputs, or building agent systems.
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 ---
 
 # Prompt Engineering Expertise

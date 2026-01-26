@@ -1,6 +1,7 @@
 ---
 name: security-auditor
 description: Security audit expertise for compliance validation, risk assessment, and security control evaluation. Use when auditing security posture, assessing compliance gaps, or evaluating security controls.
+allowed-tools: Read, Grep, Glob
 ---
 
 # Security Audit Expertise
