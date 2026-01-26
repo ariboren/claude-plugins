@@ -1,7 +1,7 @@
 {
   "name": "pro",
-  "version": "1.2.0",
-  "description": "Professional specialized agents",
+  "version": "1.3.0",
+  "description": "Professional specialized agents with contextual skills",
   "author": {
     "name": "Ari Borensztein"
   },
@@ -27,5 +27,26 @@
     "./agents/swift-pro.md",
     "./agents/typescript-pro.md",
     "./agents/ui-designer.md"
+  ],
+  "skills": [
+    "./skills/a11y-pro/SKILL.md",
+    "./skills/api-dev/SKILL.md",
+    "./skills/backend-dev/SKILL.md",
+    "./skills/game-pro/SKILL.md",
+    "./skills/javascript-pro/SKILL.md",
+    "./skills/mobile-pro/SKILL.md",
+    "./skills/pen-tester/SKILL.md",
+    "./skills/prompt-pro/SKILL.md",
+    "./skills/react-native-pro/SKILL.md",
+    "./skills/react-pro/SKILL.md",
+    "./skills/refactoring-pro/SKILL.md",
+    "./skills/root-cause-analyzer/SKILL.md",
+    "./skills/security-auditor/SKILL.md",
+    "./skills/security-engineer/SKILL.md",
+    "./skills/seo-pro/SKILL.md",
+    "./skills/sql-pro/SKILL.md",
+    "./skills/swift-pro/SKILL.md",
+    "./skills/typescript-pro/SKILL.md",
+    "./skills/ui-designer/SKILL.md"
   ]
 }
