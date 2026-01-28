@@ -120,11 +120,28 @@ Create todo list with ONLY: "Create plan", "Review loop"
 
 ## Phase 4: Create Initial Plan (SUBAGENT)
 
-Launch subagent—do NOT do this work yourself:
+**Select the best available agent** based on the requirements domain.
+
+Scan the requirements for primary domain, then select an agent:
+
+1. **Try a domain specialist first** (if installed):
+   - Database/SQL heavy → `pro:sql-pro`
+   - React Native → `pro:react-native-pro`
+   - React/Next.js → `pro:react-pro`
+   - TypeScript/Node → `pro:typescript-pro`
+   - Backend/API → `pro:backend-dev`
+   - iOS/Swift → `pro:swift-pro`
+   - Security-focused → `pro:security-engineer`
+
+2. **If the specialist fails** (agent not found error), retry with `Plan`
+
+3. **Use `Plan` directly** if domain is mixed or unclear
+
+Remember which agent you selected—use the same one for fixup.
 
 ```
 Task tool:
-- subagent_type: "Plan"
+- subagent_type: {SELECTED_AGENT}
 - model: "opus"
 - prompt: |
     Create implementation plan for the following requirements:
@@ -227,11 +244,13 @@ Task tool:
 
 ### Fixup Subagent (Separate Agent)
 
-Only launch if reviewer output "ISSUES_FOUND":
+Only launch if reviewer output "ISSUES_FOUND".
+
+Use the **same agent** as Phase 4 for domain consistency.
 
 ```
 Task tool:
-- subagent_type: "Plan"
+- subagent_type: {SAME_AGENT_AS_PHASE_4}
 - model: "opus"
 - prompt: |
     Fix the following issues in the plan at {PLAN_FILE_PATH}:
