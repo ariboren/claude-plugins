@@ -26,12 +26,28 @@ Steps 2 (Simplify) and 3 (Review) use these if available. Without them, simplify
 
 ## Coordinator Rules
 
-- **MAY** read session plans and project structure for coordination (light reads only)
-- **NEVER** read full source files, write code, or analyze implementations yourself
-- **ONLY** use Task tool to launch agents, TodoWrite to track progress, Bash for git/PR operations
-- Keep messages brief—state what you're doing and launch the next agent
-- Each step uses a **distinct agent** for fresh context
-- **Goal**: Complete workflow with NO COMPACTION—delegate heavy work to subagents
+You are a **dispatcher**, not a thinker. Your job is to route work to subagents, run git commands, and relay outputs.
+
+**You MUST delegate** (never do yourself):
+
+- Reading or analyzing source code
+- Judging implementation quality, correctness, or completeness
+- Summarizing what subagents found—just relay their output verbatim
+- Any reasoning about technical approach or code changes
+- Deciding whether implementation is "good enough"
+
+**Your only actions**:
+
+- Launch subagents with Task tool (each step = fresh agent)
+- Track progress with TodoWrite
+- Run git/PR commands with Bash
+- Light reads of session plan for routing decisions only (which domain? which agent?)
+- Execute the loop logic (count passes, check exit conditions)
+- Relay subagent outputs to user
+
+**Keep messages minimal**: "Launching implementation agent." / "Review failed, launching fixup." / "Two consecutive passes—review complete."
+
+**Goal**: Complete workflow with NO COMPACTION—all heavy work in subagents.
 
 ## Setup (Per Session)
 
@@ -132,7 +148,15 @@ Task tool:
 
 The agent reviews recently modified code for clarity and maintainability. If unavailable, proceed to Step 3—simplification is a nice-to-have refinement.
 
-### Step 3: Review
+### Step 3: Review Loop
+
+⚠️ **THIS IS A LOOP. Consensus = 2 consecutive independent "REVIEW_PASSED" verdicts.**
+
+Each review is a **clean slate evaluation**. Do NOT tell reviewers:
+
+- What previous reviewers found or changed
+- How many review iterations have occurred
+- That "we're checking if fixes worked"
 
 Use the `/code-review` skill if installed:
 
@@ -150,22 +174,34 @@ Task tool:
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    Review the implementation against the session plan at: {SESSION_PLAN_PATH}
+    Review the implementation from scratch against: {SESSION_PLAN_PATH}
 
-    Check:
-    - All objectives from the plan are met
-    - Code correctness and edge cases
-    - No regressions or broken tests
-    - Follows codebase patterns
+    Perform a COMPLETE, INDEPENDENT evaluation:
 
-    If issues found, report them clearly with file paths and line numbers.
-    Output "REVIEW_PASSED" if implementation is complete and correct.
-    Output "REVIEW_FAILED" with specific issues if problems exist.
+    **Completeness**
+    - All objectives from the plan implemented?
+    - Nothing missing or partially done?
+
+    **Correctness**
+    - Code logic correct? Edge cases handled?
+    - No regressions or broken tests?
+
+    **Quality**
+    - Follows codebase patterns and conventions?
+    - No obvious bugs, security issues, or anti-patterns?
+
+    If you find ANY issue:
+    - Report clearly with file paths and line numbers
+    - Output "REVIEW_FAILED" with specific issues
+
+    Output "REVIEW_PASSED" ONLY if:
+    - Implementation is complete and correct
+    - You would stake your reputation on it
 ```
 
 ### Step 4: Fixup (Conditional)
 
-Only run if Step 3 outputs "REVIEW_FAILED" or review found issues.
+Only run if Step 3 outputs "REVIEW_FAILED".
 
 Use the **same specialized agent** as Step 1 for domain consistency.
 
@@ -184,7 +220,34 @@ Task tool:
     Report what you fixed.
 ```
 
-If fixup was needed, re-run Step 3 (Review) to verify. Max 3 fixup cycles.
+### Review Loop Logic (MANDATORY)
+
+```
+consecutive_passes = 0
+review_iteration = 0
+
+REPEAT:
+    review_iteration += 1
+    Run Step 3 review (prompt above—NO mention of previous reviews)
+
+    IF "REVIEW_FAILED":
+        → Run Step 4 fixup
+        → consecutive_passes = 0
+        → GOTO REPEAT
+
+    IF "REVIEW_PASSED":
+        → consecutive_passes += 1
+        → IF consecutive_passes >= 2 → EXIT LOOP ✓
+        → ELSE → GOTO REPEAT (need one more independent pass)
+
+    IF review_iteration >= 6:
+        → Escalate to user for guidance
+        → GOTO REPEAT or EXIT based on response
+
+    GOTO REPEAT
+```
+
+**Key principle**: Consensus through independent reviews, not by checking if prior fixes worked. Two reviewers independently passing = genuine confidence.
 
 ### Step 5: Documentation
 
@@ -250,8 +313,7 @@ Session N:
 - [ ] Step 1: Implementation
 - [ ] Step 1.5: Create draft PR ← MANDATORY, do not skip
 - [ ] Step 2: Simplify
-- [ ] Step 3: Review
-- [ ] Step 4: Fixup (if needed)
+- [ ] Steps 3-4: Review loop (until 2 consecutive passes)
 - [ ] Step 5: Documentation
 - [ ] Mark PR ready
 - [ ] Check for next session
@@ -265,7 +327,7 @@ When starting a new session, add a new todo group for that session.
 
 - If any agent reports being blocked, use AskUserQuestion to get guidance
 - If tests fail repeatedly, ask user whether to proceed or abort
-- After 3 fixup cycles without REVIEW_PASSED, escalate to user
+- After 6 review iterations without consensus (2 consecutive passes), escalate to user
 - If specialized agent not found, retry with `general-purpose`
 
 **Git/PR errors:**

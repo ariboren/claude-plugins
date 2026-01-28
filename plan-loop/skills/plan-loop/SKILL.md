@@ -16,10 +16,25 @@ You are a **coordinator only**. Your role is to orchestrate subagents—do NOT r
 
 ## Coordinator Rules
 
-- **NEVER** read the plan file yourself—subagents handle all plan content
-- **NEVER** analyze or summarize plan contents—subagents report their findings
-- **ONLY** use Task tool to launch subagents, TodoWrite to track progress, AskUserQuestion for user input
-- Keep your messages brief—just state what you're doing and launch the next subagent
+You are a **dispatcher**, not a thinker. Your job is to route work to subagents and relay their outputs.
+
+**You MUST delegate** (never do yourself):
+
+- Reading or analyzing the plan file contents
+- Judging quality, completeness, or correctness
+- Summarizing what subagents found—just relay their output verbatim
+- Any reasoning about technical approach or requirements
+- Deciding whether the plan is "good enough"
+
+**Your only actions**:
+
+- Launch subagents with Task tool
+- Track progress with TodoWrite
+- Ask user questions with AskUserQuestion
+- Relay subagent outputs to user
+- Execute the loop logic (count approvals, check exit conditions)
+
+**Keep messages minimal**: "Launching review subagent." / "Reviewer found issues, launching fixup." / "Two consecutive approvals—loop complete."
 
 ## Phase 1: Get Initial Objective
 
@@ -143,79 +158,130 @@ Then proceed to Phase 5 (the review loop).
 
 ## Phase 5: Review Loop (SUBAGENTS)
 
-⚠️ **THIS IS A LOOP. YOU MUST ITERATE.**
+⚠️ **THIS IS A LOOP. YOU MUST ITERATE UNTIL CONSENSUS.**
 
-Do NOT pre-schedule a fixed number of reviews. You will launch review subagents ONE AT A TIME, checking after each one whether to continue. The loop ends ONLY when a reviewer outputs "PLAN_COMPLETE" having made ZERO changes.
+Consensus = **2 consecutive independent reviewers** each find ZERO issues after full evaluation. Single approval is insufficient—could be reviewer fatigue or oversight.
 
-Expect 4-8+ iterations. 2-3 is almost never sufficient.
+Each review is a **clean slate evaluation**. Do NOT tell reviewers:
 
-### Each Review Iteration:
+- What previous reviewers found or changed
+- How many iterations have occurred
+- That "we're close" or "just checking if issues were fixed"
+
+This prevents anchoring bias. If reviewers independently find no issues, that's genuine consensus.
+
+### Review Subagent (Evaluate Only)
 
 ```
 Task tool:
 - subagent_type: "Plan"
 - model: "opus"
 - prompt: |
-    You are a CRITICAL reviewer. Your job is to find EVERY flaw in this plan.
+    You are a critical plan reviewer. Evaluate this plan from scratch.
 
-    Review plan at: {PLAN_FILE_PATH}
+    Plan file: {PLAN_FILE_PATH}
 
-    Original requirements:
+    Requirements:
     {REQUIREMENTS_FROM_INTERVIEW}
 
-    BE RUTHLESSLY CRITICAL. Check for:
-    1. Completeness - ANY missing steps? ALL requirements addressed? Hidden assumptions?
-    2. Correctness - ANY errors, wrong assumptions, impossible sequences?
-    3. Clarity - EVERY step actionable and unambiguous? Would a developer know exactly what to do?
-    4. Ordering - Correct sequence? Dependencies respected?
-    5. Edge Cases - ALL identified edge cases have explicit handling?
-    6. Dependencies - ALL identified? Circular dependencies?
-    7. Gaps - ANY scenario where implementation would get stuck?
-    8. Consistency - Does the plan contradict itself anywhere?
+    ## Your Task
 
-    YOUR DEFAULT ASSUMPTION: The plan has issues. Look harder.
+    Perform a COMPLETE, INDEPENDENT evaluation. Judge the plan holistically:
 
-    If you find ANY issue, no matter how small:
-    - Fix it directly in the plan
-    - Report: what you changed and why (do NOT commit—squash at end)
-    - You MUST NOT output "PLAN_COMPLETE" if you made changes
+    **Completeness**
+    - Every requirement from the interview addressed?
+    - All necessary steps present? Nothing assumed or hand-waved?
+    - Edge cases identified and handled?
 
-    ONLY output "PLAN_COMPLETE" if you have:
-    - Read the ENTIRE plan carefully
-    - Verified EVERY requirement from the interview is addressed
-    - Found ZERO issues of any kind
-    - Confirmed the plan is AIRTIGHT and implementation-ready
+    **Correctness**
+    - Technical approach sound? No errors or wrong assumptions?
+    - Step ordering respects dependencies?
+    - No contradictions or impossible sequences?
 
-    Do NOT output "PLAN_COMPLETE" just because:
-    - The plan "looks good"
-    - You only found minor issues
-    - Previous reviewers approved it
-    - You're uncertain but don't see obvious problems
+    **Implementation-Readiness**
+    - Every step actionable and unambiguous?
+    - File paths, function names, concrete details present?
+    - A developer could start implementing without clarification?
 
-    Style: Extremely concise. Ensure "## Unresolved Questions" exists.
+    **Gaps**
+    - Any scenario where implementation would get stuck?
+    - Missing error handling, rollback, or failure modes?
+    - Unstated dependencies or prerequisites?
+
+    ## Your Output
+
+    Do NOT modify the plan file. Report only.
+
+    If you find ANY issue:
+    - List each issue with specific location and description
+    - Output "ISSUES_FOUND" followed by the list
+
+    Output "PLAN_COMPLETE" ONLY if after thorough review:
+    - The plan is AIRTIGHT
+    - Every requirement fully addressed
+    - Implementation-ready with zero ambiguity
+    - You would stake your reputation on it
 
     If blocked or need user input, list questions—coordinator will ask.
+```
+
+### Fixup Subagent (Separate Agent)
+
+Only launch if reviewer output "ISSUES_FOUND":
+
+```
+Task tool:
+- subagent_type: "Plan"
+- model: "opus"
+- prompt: |
+    Fix the following issues in the plan at {PLAN_FILE_PATH}:
+
+    {ISSUES_FROM_REVIEWER}
+
+    Requirements for context:
+    {REQUIREMENTS_FROM_INTERVIEW}
+
+    Address each issue. Do NOT add unrelated changes.
+    Style: Extremely concise. Ensure "## Unresolved Questions" exists.
+
+    Report what you fixed.
 ```
 
 ### Loop Logic (MANDATORY)
 
 ```
+consecutive_approvals = 0
 iteration = 0
+
 REPEAT:
     iteration += 1
-    Launch review subagent (above)
+    Launch REVIEW subagent (NO mention of previous reviews)
 
-    IF subagent had questions → AskUserQuestion → GOTO REPEAT
-    IF subagent made changes → GOTO REPEAT
-    IF subagent output "PLAN_COMPLETE" with ZERO changes → EXIT LOOP ✓
-    IF iteration >= 10 → ask user for guidance, then GOTO REPEAT or EXIT
+    IF reviewer had questions:
+        → AskUserQuestion
+        → consecutive_approvals = 0
+        → GOTO REPEAT
+
+    IF reviewer output "ISSUES_FOUND":
+        → Launch FIXUP subagent with the issues
+        → consecutive_approvals = 0
+        → GOTO REPEAT
+
+    IF reviewer output "PLAN_COMPLETE":
+        → consecutive_approvals += 1
+        → IF consecutive_approvals >= 2 → EXIT LOOP ✓
+        → ELSE → GOTO REPEAT (need one more independent approval)
+
+    IF iteration >= 8:
+        → Ask user for guidance
+        → GOTO REPEAT or EXIT based on response
 
     GOTO REPEAT
 ```
 
-**YOU MUST KEEP LAUNCHING REVIEW SUBAGENTS** until one returns "PLAN_COMPLETE" having made ZERO changes. This typically takes 4-8 iterations. Do NOT stop after 2-3 reviews.
+**Key principle**: The loop achieves consensus through independent, comprehensive reviews—not by checking if prior feedback was addressed. Two reviewers independently finding no issues = genuine consensus.
 
-When loop exits: Mark "Review loop" complete, commit the plan, then proceed to Phase 6.
+When loop exits: Mark "Review loop" complete, commit the plan, proceed to Phase 6.
 
 **Commit (squash all changes):**
 
@@ -245,7 +311,7 @@ Report subagent's summary to user. Done.
 
 - If you or any subagent needs feedback or is blocked due to unclear/missing requirements, use AskUserQuestion immediately. Goal: airtight plan that fully addresses requirements and identifies gaps before implementation.
 - If user provides feedback, pass it to the next subagent
-- After 10 iterations without consensus, ask user for guidance—but emphasize that stopping without "PLAN_COMPLETE" means the plan may have unresolved issues
+- After 8 iterations without consensus, ask user for guidance—but emphasize that stopping without "PLAN_COMPLETE" means the plan may have unresolved issues
 
 ---
 
