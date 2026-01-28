@@ -7,7 +7,6 @@ description: |
 argument-hint: <session-plan-path>
 allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill, Read, Glob
 model: opus
-disable-model-invocation: true
 ---
 
 # Implement: Session Implementation Pipeline

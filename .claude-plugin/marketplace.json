@@ -1,6 +1,6 @@
 {
   "name": "ariboren",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "owner": {
     "name": "Ari Borensztein"
   },
@@ -30,7 +30,7 @@
       "name": "implement",
       "source": "./implement",
       "description": "Execute multi-session implementations with stacked PRs and agent pipeline",
-      "version": "1.2.2"
+      "version": "1.2.3"
     },
     {
       "name": "workflow-extractor",
