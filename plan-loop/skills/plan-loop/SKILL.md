@@ -130,7 +130,9 @@ Scan the requirements for primary domain, then select the most relevant speciali
 - Backend/API → `pro:backend-dev`
 - Security → `pro:security-engineer`
 
-Use your judgment—pick whichever installed agent best matches the domain. If the specialist fails (not found), retry with `Plan`. Use `Plan` directly if domain is mixed or no clear specialist applies.
+Use your judgment—pick whichever installed agent best matches the domain. If the specialist fails (not found), fall back to `general-purpose`.
+
+⚠️ **Do NOT use `Plan` agent for creation or fixup**—it lacks Write/Edit tools. Use `general-purpose` if no domain specialist applies.
 
 Remember which agent you selected—use the same one for fixup.
 
@@ -183,6 +185,8 @@ Each review is a **clean slate evaluation**. Do NOT tell reviewers:
 This prevents anchoring bias. If reviewers independently find no issues, that's genuine consensus.
 
 ### Review Subagent (Evaluate Only)
+
+Use `Plan` agent here—it's ideal for architectural evaluation and doesn't need Write/Edit (review is read-only).
 
 ```
 Task tool:
@@ -241,7 +245,7 @@ Task tool:
 
 Only launch if reviewer output "ISSUES_FOUND".
 
-Use the **same agent** as Phase 4 for domain consistency.
+Use the **same agent** as Phase 4 for domain consistency. Must have Write/Edit access (never use `Plan` here).
 
 ```
 Task tool:

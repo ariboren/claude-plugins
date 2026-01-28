@@ -87,21 +87,15 @@ Step 1.5 (PR creation) is mandatory—do NOT skip it.
 
 **Select the best available agent** for the session's domain.
 
-Read the session plan to understand its primary domain, then select an agent:
+Read the session plan to understand its primary domain, then select the most relevant specialist from available agents. Examples:
 
-1. **Try a domain specialist first** (if installed):
-   - React Native → `pro:react-native-pro`
-   - React/Next.js → `pro:react-pro`
-   - TypeScript → `pro:typescript-pro`
-   - Backend/API → `pro:backend-dev`
-   - Database/SQL → `pro:sql-pro`
-   - iOS/Swift → `pro:swift-pro`
+- React Native → `pro:react-native-pro`
+- React/Next.js → `pro:react-pro`
+- TypeScript → `pro:typescript-pro`
+- Backend/API → `pro:backend-dev`
+- Database/SQL → `pro:sql-pro`
 
-2. **If the specialist fails** (agent not found error), retry with `general-purpose`
-
-3. **Use `general-purpose` directly** if domain is mixed or unclear
-
-Note: Specialized agents require separate plugin installation. `general-purpose` is always available.
+Use your judgment—pick whichever installed agent best matches the domain. If the specialist fails (not found), retry with `general-purpose`. Use `general-purpose` directly if domain is mixed or no clear specialist applies.
 
 ```
 Task tool:

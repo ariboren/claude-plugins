@@ -24,13 +24,13 @@
       "name": "plan-loop",
       "source": "./plan-loop",
       "description": "Coordinate subagent loop to create comprehensive implementation plans with iterative review",
-      "version": "1.3.1"
+      "version": "1.3.2"
     },
     {
       "name": "implement",
       "source": "./implement",
       "description": "Execute multi-session implementations with stacked PRs and agent pipeline",
-      "version": "1.3.0"
+      "version": "1.3.1"
     },
     {
       "name": "workflow-extractor",
