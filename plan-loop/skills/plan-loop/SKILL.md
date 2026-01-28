@@ -122,20 +122,15 @@ Create todo list with ONLY: "Create plan", "Review loop"
 
 **Select the best available agent** based on the requirements domain.
 
-Scan the requirements for primary domain, then select an agent:
+Scan the requirements for primary domain, then select the most relevant specialist from available agents. Examples:
 
-1. **Try a domain specialist first** (if installed):
-   - Database/SQL heavy → `pro:sql-pro`
-   - React Native → `pro:react-native-pro`
-   - React/Next.js → `pro:react-pro`
-   - TypeScript/Node → `pro:typescript-pro`
-   - Backend/API → `pro:backend-dev`
-   - iOS/Swift → `pro:swift-pro`
-   - Security-focused → `pro:security-engineer`
+- Database/SQL → `pro:sql-pro`
+- React Native → `pro:react-native-pro`
+- React/Next.js → `pro:react-pro`
+- Backend/API → `pro:backend-dev`
+- Security → `pro:security-engineer`
 
-2. **If the specialist fails** (agent not found error), retry with `Plan`
-
-3. **Use `Plan` directly** if domain is mixed or unclear
+Use your judgment—pick whichever installed agent best matches the domain. If the specialist fails (not found), retry with `Plan`. Use `Plan` directly if domain is mixed or no clear specialist applies.
 
 Remember which agent you selected—use the same one for fixup.
 
