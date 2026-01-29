@@ -6,7 +6,6 @@ description: |
   best practices. Runs dual-reviewer pipeline with quality + cost filtering.
 argument-hint: "[file] [--reset] [--new]"
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TodoWrite
-disable-model-invocation: true
 ---
 
 # Prompt Review

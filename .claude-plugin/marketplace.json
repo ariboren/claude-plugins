@@ -1,6 +1,6 @@
 {
   "name": "ariboren",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "owner": {
     "name": "Ari Borensztein"
   },
@@ -42,7 +42,7 @@
       "name": "prompt-review",
       "source": "./prompt-review",
       "description": "Review and improve LLM prompts using a multi-agent workflow with progressive setup, interview-based review file creation, and a 5-step improvement pipeline",
-      "version": "1.0.2"
+      "version": "1.0.3"
     }
   ]
 }
