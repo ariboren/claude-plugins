@@ -42,10 +42,10 @@ You are a **dispatcher**, not a thinker. Your job is to route work to subagents,
 - Track progress with TodoWrite
 - Run git/PR commands with Bash
 - Light reads of session plan for routing decisions only (which domain? which agent?)
-- Execute the loop logic (count passes, check exit conditions)
+- Execute the loop logic (check exit conditions)
 - Relay subagent outputs to user
 
-**Keep messages minimal**: "Launching implementation agent." / "Review failed, launching fixup." / "Two consecutive passes—review complete."
+**Keep messages minimal**: "Launching implementation agent." / "Review failed, launching fixup." / "Review approved—proceeding."
 
 **Goal**: Complete workflow with NO COMPACTION—all heavy work in subagents.
 
@@ -144,13 +144,9 @@ The agent reviews recently modified code for clarity and maintainability. If una
 
 ### Step 3: Review Loop
 
-⚠️ **THIS IS A LOOP. Consensus = 2 consecutive independent "REVIEW_PASSED" verdicts.**
+⚠️ **THIS IS A LOOP. Single APPROVED verdict exits.**
 
-Each review is a **clean slate evaluation**. Do NOT tell reviewers:
-
-- What previous reviewers found or changed
-- How many review iterations have occurred
-- That "we're checking if fixes worked"
+Each review is a **clean slate evaluation**. Do NOT tell reviewers what previous reviewers found. After iteration 3, add convergence context.
 
 Use the `/code-review` skill if installed:
 
@@ -168,34 +164,43 @@ Task tool:
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    Review the implementation from scratch against: {SESSION_PLAN_PATH}
+    Review the implementation against: {SESSION_PLAN_PATH}
 
-    Perform a COMPLETE, INDEPENDENT evaluation:
+    ## Evaluation Criteria
 
-    **Completeness**
-    - All objectives from the plan implemented?
-    - Nothing missing or partially done?
+    **Completeness** - All plan objectives implemented?
+    **Correctness** - Code logic correct? Tests pass?
+    **Quality** - Follows codebase patterns? No obvious bugs?
 
-    **Correctness**
-    - Code logic correct? Edge cases handled?
-    - No regressions or broken tests?
+    ## Issue Severity (including divergence from plan)
 
-    **Quality**
-    - Follows codebase patterns and conventions?
-    - No obvious bugs, security issues, or anti-patterns?
+    **BLOCKING** - Cannot ship:
+    - Wrong behavior, security issues
+    - Unplanned architectural divergence (different data model, new deps, changed interfaces)
+    - Skipped planned steps without explanation
 
-    If you find ANY issue:
-    - Report clearly with file paths and line numbers
-    - Output "REVIEW_FAILED" with specific issues
+    **MAJOR** - Should fix:
+    - Edge case bugs, missing error handling
+    - Unexplained implementation divergence (different approach than specified)
+    - Added/removed functionality not in plan
 
-    Output "REVIEW_PASSED" ONLY if:
-    - Implementation is complete and correct
-    - You would stake your reputation on it
+    **MINOR** - Nice to have (do NOT block on these):
+    - Style, naming improvements
+    - Minor implementation detail changes with clear reasoning
+
+    ## Your Output
+
+    - "APPROVED" - No blocking or major issues. Ready to ship.
+    - "APPROVED_WITH_NOTES" - No blocking or major issues. Minor notes: [list]
+    - "NEEDS_WORK" - Blocking or major issues: [list with file:line]
+
+    Implementation matching the plan with working tests is APPROVED,
+    even if imperfect. Perfectionism wastes tokens.
 ```
 
 ### Step 4: Fixup (Conditional)
 
-Only run if Step 3 outputs "REVIEW_FAILED".
+Only run if Step 3 outputs "NEEDS_WORK".
 
 Use the **same specialized agent** as Step 1 for domain consistency.
 
@@ -217,31 +222,35 @@ Task tool:
 ### Review Loop Logic (MANDATORY)
 
 ```
-consecutive_passes = 0
-review_iteration = 0
+iteration = 0
 
 REPEAT:
-    review_iteration += 1
-    Run Step 3 review (prompt above—NO mention of previous reviews)
+    iteration += 1
 
-    IF "REVIEW_FAILED":
-        → Run Step 4 fixup
-        → consecutive_passes = 0
+    # Add convergence context after iteration 3
+    IF iteration > 3:
+        Add to review prompt: "This is iteration {iteration}. Focus on BLOCKING issues only."
+
+    Run Step 3 review
+
+    IF "NEEDS_WORK":
+        → Run Step 4 fixup with blocking issues
         → GOTO REPEAT
 
-    IF "REVIEW_PASSED":
-        → consecutive_passes += 1
-        → IF consecutive_passes >= 2 → EXIT LOOP ✓
-        → ELSE → GOTO REPEAT (need one more independent pass)
+    IF "APPROVED" or "APPROVED_WITH_NOTES":
+        → EXIT LOOP ✓
 
-    IF review_iteration >= 6:
-        → Escalate to user for guidance
-        → GOTO REPEAT or EXIT based on response
+    IF iteration == 4:
+        → Summarize situation to user
+        → Ask: "Proceed with current implementation, or continue refining?"
+        → IF proceed → EXIT LOOP
+        → ELSE → GOTO REPEAT
 
     GOTO REPEAT
 ```
 
-**Key principle**: Consensus through independent reviews, not by checking if prior fixes worked. Two reviewers independently passing = genuine confidence.
+**Single approval is sufficient** when the reviewer explicitly outputs APPROVED.
+The review loop catches regressions, not stylistic disagreements between hypothetical reviewers.
 
 ### Step 5: Documentation
 
@@ -307,7 +316,7 @@ Session N:
 - [ ] Step 1: Implementation
 - [ ] Step 1.5: Create draft PR ← MANDATORY, do not skip
 - [ ] Step 2: Simplify
-- [ ] Steps 3-4: Review loop (until 2 consecutive passes)
+- [ ] Steps 3-4: Review loop (until APPROVED)
 - [ ] Step 5: Documentation
 - [ ] Mark PR ready
 - [ ] Check for next session
@@ -321,7 +330,7 @@ When starting a new session, add a new todo group for that session.
 
 - If any agent reports being blocked, use AskUserQuestion to get guidance
 - If tests fail repeatedly, ask user whether to proceed or abort
-- After 6 review iterations without consensus (2 consecutive passes), escalate to user
+- After 4 review iterations without approval, escalate to user
 - If specialized agent not found, retry with `general-purpose`
 
 **Git/PR errors:**

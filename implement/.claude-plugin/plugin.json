@@ -1,6 +1,6 @@
 {
   "name": "implement",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Execute session plans using a 6-step subagent pipeline with stacked PRs",
   "author": {
     "name": "Ari Borensztein"

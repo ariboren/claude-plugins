@@ -32,9 +32,9 @@ You are a **dispatcher**, not a thinker. Your job is to route work to subagents 
 - Track progress with TodoWrite
 - Ask user questions with AskUserQuestion
 - Relay subagent outputs to user
-- Execute the loop logic (count approvals, check exit conditions)
+- Execute the loop logic (check exit conditions)
 
-**Keep messages minimal**: "Launching review subagent." / "Reviewer found issues, launching fixup." / "Two consecutive approvals—loop complete."
+**Keep messages minimal**: "Launching review subagent." / "Reviewer found issues, launching fixup." / "Approved—loop complete."
 
 ## Phase 1: Get Initial Objective
 
@@ -172,17 +172,9 @@ Then proceed to Phase 5 (the review loop).
 
 ## Phase 5: Review Loop (SUBAGENTS)
 
-⚠️ **THIS IS A LOOP. YOU MUST ITERATE UNTIL CONSENSUS.**
+⚠️ **THIS IS A LOOP. Single APPROVED verdict exits.**
 
-Consensus = **2 consecutive independent reviewers** each find ZERO issues after full evaluation. Single approval is insufficient—could be reviewer fatigue or oversight.
-
-Each review is a **clean slate evaluation**. Do NOT tell reviewers:
-
-- What previous reviewers found or changed
-- How many iterations have occurred
-- That "we're close" or "just checking if issues were fixed"
-
-This prevents anchoring bias. If reviewers independently find no issues, that's genuine consensus.
+Each review is a **clean slate evaluation**. Do NOT tell reviewers what previous reviewers found (prevents anchoring bias). After iteration 3, add convergence context.
 
 ### Review Subagent (Evaluate Only)
 
@@ -193,57 +185,57 @@ Task tool:
 - subagent_type: "Plan"
 - model: "opus"
 - prompt: |
-    You are a critical plan reviewer. Evaluate this plan from scratch.
+    You are a plan reviewer. Evaluate this plan pragmatically.
 
     Plan file: {PLAN_FILE_PATH}
 
     Requirements:
     {REQUIREMENTS_FROM_INTERVIEW}
 
-    ## Your Task
+    ## Evaluation Criteria
 
-    Perform a COMPLETE, INDEPENDENT evaluation. Judge the plan holistically:
+    **Completeness** - Requirements covered? Steps actionable?
+    **Correctness** - Technical approach sound? Dependencies ordered?
+    **Implementation-Readiness** - Developer could start without clarification?
 
-    **Completeness**
-    - Every requirement from the interview addressed?
-    - All necessary steps present? Nothing assumed or hand-waved?
-    - Edge cases identified and handled?
+    ## Issue Severity
 
-    **Correctness**
-    - Technical approach sound? No errors or wrong assumptions?
-    - Step ordering respects dependencies?
-    - No contradictions or impossible sequences?
+    Categorize each finding:
 
-    **Implementation-Readiness**
-    - Every step actionable and unambiguous?
-    - File paths, function names, concrete details present?
-    - A developer could start implementing without clarification?
+    **BLOCKING** - Plan cannot proceed:
+    - Missing critical requirement
+    - Fundamentally wrong technical approach
+    - Impossible step sequence or contradictions
 
-    **Gaps**
-    - Any scenario where implementation would get stuck?
-    - Missing error handling, rollback, or failure modes?
-    - Unstated dependencies or prerequisites?
+    **MAJOR** - Should fix before implementation:
+    - Missing edge case handling
+    - Ambiguous steps needing clarification
+    - Missing concrete details (file paths, function names)
+
+    **MINOR** - Nice to have, acceptable to proceed:
+    - Style/formatting improvements
+    - Additional test suggestions
+    - Documentation polish
+
+    Do NOT block on minor issues.
 
     ## Your Output
 
     Do NOT modify the plan file. Report only.
 
-    If you find ANY issue:
-    - List each issue with specific location and description
-    - Output "ISSUES_FOUND" followed by the list
+    - "APPROVED" - No blocking or major issues. Plan is implementation-ready.
+    - "APPROVED_WITH_NOTES" - No blocking or major issues. Minor notes: [list]
+    - "NEEDS_WORK" - Blocking or major issues exist: [list with locations]
 
-    Output "PLAN_COMPLETE" ONLY if after thorough review:
-    - The plan is AIRTIGHT
-    - Every requirement fully addressed
-    - Implementation-ready with zero ambiguity
-    - You would stake your reputation on it
+    A plan covering all requirements with sound approach is APPROVED,
+    even if imperfect. Perfectionism wastes tokens.
 
     If blocked or need user input, list questions—coordinator will ask.
 ```
 
 ### Fixup Subagent (Separate Agent)
 
-Only launch if reviewer output "ISSUES_FOUND".
+Only launch if reviewer output "NEEDS_WORK".
 
 Use the **same agent** as Phase 4 for domain consistency. Must have Write/Edit access (never use `Plan` here).
 
@@ -268,36 +260,39 @@ Task tool:
 ### Loop Logic (MANDATORY)
 
 ```
-consecutive_approvals = 0
 iteration = 0
 
 REPEAT:
     iteration += 1
-    Launch REVIEW subagent (NO mention of previous reviews)
+
+    # Add convergence context after iteration 3
+    IF iteration > 3:
+        Add to review prompt: "This is iteration {iteration}. Focus on BLOCKING issues only."
+
+    Launch REVIEW subagent
 
     IF reviewer had questions:
         → AskUserQuestion
-        → consecutive_approvals = 0
         → GOTO REPEAT
 
-    IF reviewer output "ISSUES_FOUND":
-        → Launch FIXUP subagent with the issues
-        → consecutive_approvals = 0
+    IF reviewer output "NEEDS_WORK":
+        → Launch FIXUP subagent with blocking issues
         → GOTO REPEAT
 
-    IF reviewer output "PLAN_COMPLETE":
-        → consecutive_approvals += 1
-        → IF consecutive_approvals >= 2 → EXIT LOOP ✓
-        → ELSE → GOTO REPEAT (need one more independent approval)
+    IF reviewer output "APPROVED" or "APPROVED_WITH_NOTES":
+        → EXIT LOOP ✓
 
-    IF iteration >= 8:
-        → Ask user for guidance
-        → GOTO REPEAT or EXIT based on response
+    IF iteration >= 5:
+        → Summarize situation to user
+        → Ask: "Proceed with current plan, or continue refining?"
+        → IF proceed → EXIT LOOP
+        → ELSE → GOTO REPEAT
 
     GOTO REPEAT
 ```
 
-**Key principle**: The loop achieves consensus through independent, comprehensive reviews—not by checking if prior feedback was addressed. Two reviewers independently finding no issues = genuine consensus.
+**Single approval is sufficient** when the reviewer explicitly outputs APPROVED.
+Minor issues noted in APPROVED_WITH_NOTES can be addressed during implementation.
 
 When loop exits: Mark "Review loop" complete, commit the plan, proceed to Phase 6.
 
@@ -329,7 +324,7 @@ Report subagent's summary to user. Done.
 
 - If you or any subagent needs feedback or is blocked due to unclear/missing requirements, use AskUserQuestion immediately. Goal: airtight plan that fully addresses requirements and identifies gaps before implementation.
 - If user provides feedback, pass it to the next subagent
-- After 8 iterations without consensus, ask user for guidance—but emphasize that stopping without "PLAN_COMPLETE" means the plan may have unresolved issues
+- After 5 iterations without approval, ask user for guidance
 
 ---
 
