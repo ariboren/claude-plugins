@@ -1,6 +1,6 @@
 {
   "name": "pro",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Professional specialized agents with contextual skills",
   "author": {
     "name": "Ari Borensztein"
@@ -11,6 +11,7 @@
     "./agents/a11y-pro.md",
     "./agents/api-dev.md",
     "./agents/backend-dev.md",
+    "./agents/convex-pro.md",
     "./agents/game-pro.md",
     "./agents/javascript-pro.md",
     "./agents/mobile-pro.md",

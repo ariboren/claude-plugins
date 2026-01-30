@@ -1,6 +1,6 @@
 {
   "name": "ariboren",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "owner": {
     "name": "Ari Borensztein"
   },
@@ -18,7 +18,7 @@
       "name": "pro",
       "source": "./pro",
       "description": "Professional specialized agents with contextual skills",
-      "version": "1.4.1"
+      "version": "1.4.2"
     },
     {
       "name": "plan-loop",
