@@ -6,7 +6,6 @@ description: |
   "implement the plan" or "run the session." Creates stacked PRs per session.
 argument-hint: <session-plan-path>
 allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill, Read, Glob
-model: opus
 ---
 
 # Implement: Session Implementation Pipeline
@@ -100,7 +99,6 @@ Use your judgment—pick whichever installed agent best matches the domain. If t
 ```
 Task tool:
 - subagent_type: {SELECTED_AGENT}
-- model: "opus"
 - prompt: |
     Implement the session plan at: {SESSION_PLAN_PATH}
 
@@ -162,7 +160,6 @@ If `/code-review` is not installed, fall back to manual review:
 ```
 Task tool:
 - subagent_type: "general-purpose"
-- model: "opus"
 - prompt: |
     Review the implementation against: {SESSION_PLAN_PATH}
 
@@ -207,7 +204,6 @@ Use the **same specialized agent** as Step 1 for domain consistency.
 ```
 Task tool:
 - subagent_type: {SAME_AGENT_AS_STEP_1}
-- model: "opus"
 - prompt: |
     Fix the issues identified in the review:
 
@@ -257,7 +253,6 @@ The review loop catches regressions, not stylistic disagreements between hypothe
 ```
 Task tool:
 - subagent_type: "general-purpose"
-- model: "sonnet"
 - prompt: |
     Update documentation for the completed session.
 
