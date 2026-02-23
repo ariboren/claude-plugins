@@ -1,12 +1,13 @@
 {
   "name": "pro",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Professional specialized agents with contextual skills",
   "author": {
     "name": "Ari Borensztein"
   },
   "repository": "https://github.com/ariboren/claude-plugins",
   "license": "MIT",
+  "commands": "./commands/",
   "agents": [
     "./agents/a11y-pro.md",
     "./agents/api-dev.md",
