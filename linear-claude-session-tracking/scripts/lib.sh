@@ -106,7 +106,6 @@ linear_create_issue() {
         --title "$title"
         --description "$description"
         --no-interactive
-        --no-color
     )
 
     # Add optional arguments if set
@@ -136,7 +135,7 @@ linear_update_title() {
     local issue_id="$1"
     local title="$2"
 
-    linear issue update "$issue_id" --title "$title" --no-color >/dev/null 2>&1
+    linear issue update "$issue_id" --title "$title" >/dev/null 2>&1
 }
 
 # Update Linear issue state
@@ -144,14 +143,14 @@ linear_update_state() {
     local issue_id="$1"
     local state="$2"
 
-    linear issue update "$issue_id" --state "$state" --no-color >/dev/null 2>&1
+    linear issue update "$issue_id" --state "$state" >/dev/null 2>&1
 }
 
 # Delete Linear issue
 linear_delete_issue() {
     local issue_id="$1"
 
-    # Note: delete doesn't support --no-color, use -y for confirmation skip
+    # Use -y to skip confirmation prompt
     linear issue delete "$issue_id" -y >/dev/null 2>&1
     return 0  # Always succeed - if issue is already deleted, that's fine
 }

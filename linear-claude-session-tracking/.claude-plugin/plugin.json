@@ -1,6 +1,6 @@
 {
   "name": "linear-claude-session-tracking",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Automatically track Claude Code sessions in Linear with commits and file changes",
   "author": {
     "name": "Ari Borensztein"
