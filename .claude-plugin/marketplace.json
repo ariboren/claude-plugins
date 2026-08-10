@@ -1,6 +1,6 @@
 {
   "name": "ariboren",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "owner": {
     "name": "Ari Borensztein"
   },
@@ -43,6 +43,12 @@
       "source": "./prompt-review",
       "description": "Review and improve LLM prompts using a multi-agent workflow with progressive setup, interview-based review file creation, and a 5-step improvement pipeline",
       "version": "1.0.3"
+    },
+    {
+      "name": "implement-lite",
+      "source": "./implement-lite",
+      "description": "Token-efficient session implementation pipeline using a 3-phase loop with stacked PRs",
+      "version": "1.0.0"
     }
   ]
 }

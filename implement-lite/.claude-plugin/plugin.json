@@ -1,0 +1,10 @@
+{
+  "name": "implement-lite",
+  "version": "1.0.0",
+  "description": "Token-efficient session implementation pipeline using a 3-phase loop with stacked PRs",
+  "author": {
+    "name": "Ari Borensztein"
+  },
+  "repository": "https://github.com/ariboren/claude-plugins",
+  "license": "MIT"
+}
