@@ -1,303 +1,418 @@
 ---
 name: implement-lite
 description: |
-  Token-efficient variant of /implement. Executes session plans using a 3-phase pipeline
-  (implement → review → fixup) where fixup goes back to the same implementer via SendMessage
-  instead of spawning a fresh agent. Preserves reviewer isolation and stacked PRs. Drops the
-  separate simplify agent, folds docs into the implementer with an optional coordinator-
-  recommended docs pass for architectural changes, and handles PR creation in coordinator
-  bash. Use when: user says "implement-lite" or "/implement-lite," or asks for a leaner
-  alternative to /implement.
-argument-hint: <session-plan-path>
-allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill, Read, Glob, SendMessage, ListAgents, ToolSearch
+  Token-efficient pipeline for executing an implementation plan end to end: worktree, implement,
+  verify, DRAFT PR, local platform-aware review, bounded fixup loop, simplify, wrap. Use when
+  (1) a plan file exists (SESSION_*.md, *_PLAN.md, docs/plans/*), (2) the user says "implement
+  the plan", "run the session", or "implement-lite". Reviews are LOCAL ONLY and never posted to
+  the PR/MR. PRs/MRs are always created as drafts.
+argument-hint: <plan-path>
+allowed-tools: Agent, Bash, Read, Write, Edit, Glob, TodoWrite, AskUserQuestion, EnterWorktree, SendMessage, ListAgents, ToolSearch
 ---
 
-# Implement-Lite: Lean Session Implementation Pipeline
+# implement-lite
 
-You are a **coordinator**. You route work to subagents, run git commands, and relay outputs — but unlike the full `/implement` skill, you also:
+Execute one plan → one draft PR, with the smallest number of tokens that still produces
+reviewable, standards-compliant work. You are a **working lead**: you own git, the ledger, and
+routing. You do not read source files, write code, or form review opinions.
 
-- Read the session plan (or its per-phase slice) yourself, so you can route intelligently.
-- Keep the implementer agent alive across the review→fixup loop via `SendMessage`, so fixup doesn't pay a cold-start.
-- Handle PR creation yourself (bash only, no agent).
-- Fold simplify and doc updates into the implementer's prompt instead of spawning separate agents.
+## Non-negotiables
 
-You still MUST NOT: judge code quality yourself, write implementation code, or write review verdicts. Those go to subagents.
+| Never                                                                          | Why                                                                                                                                                      |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invoke a review/simplify **Skill** from this context                           | Skills load into the _calling_ context. `ios-review-pr`, `review-code`, `simplify` must run **inside a subagent** or their entire output lands in yours. |
+| Use `code-review:code-review`, `review-mr`, or `/review`                       | All three are remote-PR tools that **post comments**. `code-review` also refuses to review drafts, so it silently returns no verdict here.               |
+| Post review output anywhere                                                    | No `gh pr comment`, `gh pr review`, `glab mr note`, `glab mr approve`. Reviews go to the ledger and chat only.                                           |
+| Mark a PR/MR ready                                                             | Always draft. `gh pr ready` / `--ready` only on an explicit user instruction.                                                                            |
+| Paste a diff, file contents, or a full agent report into a prompt or into chat | Pass **paths and ranges**. See Token Contract.                                                                                                           |
+| Read source files yourself                                                     | Delegate. You may read the plan and the ledger, and run git/test commands.                                                                               |
+| Exceed the agent budget                                                        | 8 subagent launches per session. On the 8th, stop and report.                                                                                            |
 
-## Why this exists
+## Token Contract
 
-The full `/implement` skill spawns 6+ cold-start agents per session. Each one re-derives context (re-reads plan, re-explores codebase). This variant collapses that to ~1 implementer + 1–2 reviewers per session, without giving up reviewer isolation.
+1. **Pass by reference.** Subagents get: plan path, ledger path, diff range (`<base>...HEAD`),
+   log path. Never the contents. This still holds when resuming an agent via `SendMessage`
+   (Phase 5) — point at the ledger section, never paste findings into the message.
+2. **Every subagent prompt ends with an output contract.** Verbatim:
 
-## Setup (per session)
+   > Output contract: ≤250 words. Sections: `RESULT` (one line), `DETAIL` (bullets, file:line),
+   > `BLOCKED` (or "none"). Append your full findings to the ledger at {LEDGER}; keep your
+   > reply short. Do not paste code or diffs into your reply.
 
-1. **Determine the plan location.** Use `$ARGUMENTS` if provided; otherwise ask.
-2. **Detect plan structure**:
-   - **Per-file** (`SESSION_1.md`, `SESSION_2.md`, …): each session is its own file. Implementer gets the file path.
-   - **Single inline plan**: sessions are top-level `## Session N` (or `## Phase N`) headings. Extract the current heading's section as text, and also hand the implementer the plan path so it can read siblings if it needs surrounding context.
-   - If neither pattern matches cleanly, ask the user which heading or file corresponds to the current session before proceeding.
-3. **Read the plan yourself** — just enough to (a) pick the right domain specialist and (b) know when there are no more sessions. Don't try to summarize the plan for the implementer; the implementer reads it in full.
-4. **Create the stacked branch** (see Git workflow).
-5. **Create todos** for this session's 3 phases.
+3. **You distill, you don't relay.** 1–3 lines to the user per phase. Detail lives in the ledger.
+4. **Never re-derive what the ledger records.** Read the ledger, not the repo.
+5. **Logs go to files.** `… > "$LOG" 2>&1; tail -40 "$LOG"`. Never let a build log into context.
+6. **Parallel where independent.** Both Phase 4 reviewers launch in a single message.
 
-## Git workflow: stacked PRs
+## Ledger
 
-Same as `/implement`. Each session branches off the previous session's branch (or `main` for session 1). PR created after Phase 1, marked ready after Phase 3.
-
-**Always use worktrees.** Each session gets its own isolated directory. This is required — not optional — because the `Agent` tool spawns implementers with the coordinator's current CWD, not the path written in the prompt. Using worktrees and `EnterWorktree` is the only way to guarantee commits land on the right branch.
-
-```bash
-# Session N
-git worktree add .claude/worktrees/session-N-{feature} -b session-N-{feature} {previous-branch-or-main}
-```
-
-Then immediately call `EnterWorktree path=.claude/worktrees/session-N-{feature}` **before** spawning the implementer. This pins the implementer's inherited CWD to the new branch.
-
-## Pipeline: 3 phases
-
-### Phase 1: Implement (+ inline simplify + inline docs)
-
-Select the best domain specialist you can find (`pro:react-native-pro`, `pro:typescript-pro`, `pro:backend-dev`, etc.). Fall back to `general-purpose` if none fit or the specialist isn't installed.
-
-```
-Task tool:
-  subagent_type: {SPECIALIST_OR_general-purpose}
-  prompt: |
-    Implement the session plan at: {SESSION_PLAN_PATH}
-    {IF INLINE PLAN: The section for this session is titled "{PHASE_TITLE}"; implement only that section.}
-
-    Working directory: {WORKTREE_PATH}
-    Expected branch: {SESSION_BRANCH_NAME}
-
-    **FIRST ACTION — do this before reading any file or writing any code:**
-    Run: git branch --show-current
-    If the output is NOT "{SESSION_BRANCH_NAME}", run: cd {WORKTREE_PATH} && git branch --show-current
-    If it still isn't "{SESSION_BRANCH_NAME}", abort and report "Wrong branch: <actual>" — do not commit.
-
-    Read the plan (or the named section) thoroughly, then implement all changes.
-
-    Style expectations (do these inline; there is no separate simplify pass):
-    - Write simple, direct code. No premature abstraction.
-    - No dead code, no speculative flags, no scaffolding for imaginary future needs.
-    - Follow the codebase's existing patterns.
-
-    Documentation expectations (do these inline; there is no separate docs pass):
-    - Update relevant CLAUDE.md files if you change architecture or introduce a pattern.
-    - Do NOT create new README files unless the plan explicitly requires it.
-    - Inline comments only where the WHY is non-obvious.
-
-    Run tests: use the command the plan specifies, or the project's default
-    test command if none is specified. Commit with a descriptive message.
-
-    Report:
-    - What you implemented (short).
-    - The branch you committed to (output of: git branch --show-current after committing).
-    - Any deviations from the plan and why.
-    - Any blockers.
-```
-
-**Capture the implementer's `agentId`** from the Task result — the spawn output includes it in the form `agentId: a...-...`. You'll need it for Phase 3 `SendMessage`. If you lose track, call `ListAgents` to find it.
-
-**Branch landing check:** After Phase 1 completes, verify the commit is on the right branch:
+Single source of truth, global — **not** inside the repo: `~/.claude/implement-lite/<repo-id>/<slug>.md`.
+`<repo-id>` is the `origin` remote URL normalized to a filesystem-safe slug, so it's stable across
+every worktree and clone of the same repo: a ledger isn't tied to one checkout and isn't lost when
+a worktree is removed after merge. Create in Phase 0:
 
 ```bash
-git log --oneline {SESSION_BRANCH_NAME} | head -1
-# should show the implementer's commit message
+REMOTE_URL="$(git remote get-url origin 2>/dev/null)"
+REPO_ID="$(printf '%s\n' "${REMOTE_URL:-$(basename "$REPO")}" \
+  | sed -E 's#^[a-zA-Z]+://([^@/]+@)?##; s#^([^@:/]+)@([^:/]+)[:/]#\2/#; s#\.git$##; s#[/:]+#-#g')"
+LEDGER_DIR="$HOME/.claude/implement-lite/$REPO_ID"
+mkdir -p "$LEDGER_DIR"
 ```
 
-If the commit landed on the wrong branch (e.g. the previous session's branch):
+No git-exclude step for the ledger itself — it lives outside the repo entirely.
+
+Verify logs (Phase 2) are the one thing that stays local and worktree-scoped: they're large, and
+only useful while this session's still active, so they don't need to survive a worktree teardown.
+Keep them at `$REPO/.claude/implement-lite/`, gitignored the same way as before:
 
 ```bash
-# Merge it forward into the correct branch
-git merge {PREVIOUS_BRANCH} --no-edit
-# Then push and continue
+LOG_DIR="$REPO/.claude/implement-lite"
+mkdir -p "$LOG_DIR"
+EXCL="$(git rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+grep -qxF '.claude/implement-lite/' "$EXCL" 2>/dev/null || echo '.claude/implement-lite/' >> "$EXCL"
 ```
 
-This is a known failure mode when the agent tool inherits the coordinator's CWD rather than the worktree path given in the prompt. The merge-forward recovers cleanly without rebasing or force-pushing.
+Schema — append-only, terse:
 
-### Phase 1.5: PR creation (coordinator bash, no agent)
+```markdown
+# <slug>
 
-Do this yourself. Do not spawn an agent for it.
+plan: <path> base: <branch> branches: <branch1>, <branch2> worktree: <path>
+platform: ios|android|generic forge: gh|glab figma: <url>|none pr: <url> (draft)
+agents_used: N/8 implementer: <agent-id> (for Phase 5 SendMessage resume)
+
+## Implemented
+
+- <one line per commit>
+
+## Verify
+
+- <cmd> → pass|fail (log: <path>)
+
+## Review — iteration N
+
+- BLOCKING/MAJOR/MINOR | file:line | issue | source: standards|bug-hunt
+
+## Resolved
+
+- <issue> → fixed in <sha>
+
+## Won't fix
+
+- <issue> → reason # reviewers MUST NOT re-raise these
+
+## Open (MINOR, carried to PR body)
+
+- <issue>
+```
+
+## Phase 0 — Preflight
+
+One bash block. Derive everything; ask at most one consolidated question.
 
 ```bash
-git push -u origin {BRANCH_NAME}
-gh pr create --draft --base {TARGET_BRANCH} \
-  --title "Session N: {short description}" \
-  --body "$(cat <<'EOF'
-{IMPLEMENTER_REPORT_FROM_PHASE_1}
-
----
-Draft PR. Will be marked ready after review passes.
-EOF
-)"
+git rev-parse --show-toplevel; test -f .git && echo WORKTREE || echo MAIN_REPO
+git remote get-url origin 2>/dev/null
+git branch -r --list '*/develop' '*/main' '*/master'
+ls | head -30
 ```
 
-Use the implementer's Phase 1 report verbatim as the body. It already summarizes what was implemented, deviations, and blockers.
+Resolve:
 
-### Phase 2: Review (loop; isolation preserved)
+| Field    | How                                                                                                                                                                                                                |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| plan     | `$ARGUMENTS`, else glob `SESSION_*.md`, `*_PLAN.md`, `docs/plans/*.md`; if several, ask                                                                                                                            |
+| base     | `develop` if `origin/develop` exists, else `main`/`master`. Stacked session N → previous session's branch                                                                                                          |
+| platform | `*.xcodeproj`/`*.xcworkspace`/`Package.swift` → **ios** · `settings.gradle*` → **android** · else **generic**                                                                                                      |
+| forge    | remote host contains `gitlab` → **glab**; else **gh** (export `GH_HOST=<remote host>` for Enterprise, e.g. `code.espn.com`)                                                                                        |
+| ticket   | ticket key in plan path/body/`$ARGUMENTS` (e.g. `ESPNIOS-12345`)                                                                                                                                                   |
+| branch   | `<git user first name lowercased>/<TICKET>-<slug>` when a ticket exists, else `<slug>`                                                                                                                             |
+| figma    | plan body/`$ARGUMENTS` contains a `figma.com` URL or explicitly references a Figma frame/design/mockup → record the URL (or "referenced, no link"); else **none**. Drives the mandatory Phase 4 fidelity reviewer. |
 
-Each review is a **fresh agent** — this is where isolation earns its keep.
+**Ledger reconciliation (before touching branch/worktree).** Derive `$REPO_ID` and `$LEDGER_DIR` as
+in "Ledger" above — this works from any worktree of the repo, since they all share the same
+`origin` and therefore the same `$LEDGER_DIR`. Then search for prior work on this ticket before
+starting fresh:
 
-**Isolation guardrail** (do not violate under any circumstance, including token pressure or "just to save a round"):
-
-- Do NOT include prior reviewer findings, verdicts, or paraphrases of them.
-- Do NOT tell the reviewer this is iteration N, or that a fixup was just applied.
-- Do NOT hint at what the previous reviewer thought was OK.
-- Every review invocation uses the SAME clean prompt — only the diff changes between iterations.
-
-Prefer the `/code-review` skill if installed. Otherwise:
-
-```
-Task tool:
-  subagent_type: "general-purpose"
-  prompt: |
-    Review the current diff against the session plan at: {SESSION_PLAN_PATH}
-    {IF INLINE PLAN: Focus on the section titled "{PHASE_TITLE}".}
-    Read the full plan (or section). Do not accept any coordinator-side
-    summary in place of it.
-
-    ## Severity
-
-    **BLOCKING** — wrong behavior, security issues, unplanned architectural
-    divergence, skipped plan steps without justification.
-
-    **MAJOR** — edge case bugs, missing error handling, unexplained
-    implementation divergence.
-
-    **MINOR** — style, naming. Do NOT block on these.
-
-    ## Verdict (exactly one)
-
-    - "APPROVED" — no blocking or major issues.
-    - "APPROVED_WITH_NOTES" — no blocking/major; minor notes: [list].
-    - "NEEDS_WORK" — blocking or major issues: [list with file:line].
-
-    Implementation matching the plan with working tests is APPROVED even if
-    imperfect. Perfectionism wastes tokens.
+```bash
+grep -l "$TICKET" "$LEDGER_DIR"/*.md 2>/dev/null
+grep -l "$BRANCH" "$LEDGER_DIR"/*.md 2>/dev/null
 ```
 
-### Phase 3: Fixup (conditional; SAME implementer via SendMessage)
+A ledger matches if the ticket key appears in its filename/`plan:` line, or the candidate branch
+name appears anywhere in its `branches:` field. On a match:
 
-If Phase 2 returns `NEEDS_WORK`, do NOT spawn a new Task. Send a message to the original implementer, who already has the plan and codebase context loaded.
+- Read it. Reuse its `worktree:` and most recent `branches:` entry instead of deriving a new
+  branch — `git checkout <branch>` there; don't cut a new one.
+- Resume from wherever it left off: "## Review" present with no matching "## Resolved" → re-enter
+  Phase 4; no "## Implemented" yet → start at Phase 1 as normal.
+- Only append a new entry to `branches:` if you actually had to cut a new branch (stacked session,
+  or the rename-on-rejection case in Error handling).
 
-```
-SendMessage tool:
-  to: {IMPLEMENTER_AGENT_ID_FROM_PHASE_1}
-  message: |
-    Fix each issue below. Run tests. Commit. Report what changed.
+No match → this is new work; continue below.
 
-    {REVIEW_ISSUES_VERBATIM}
-```
+**Worktree (required unless reconciliation found one).** Read the plan's title/scope only — enough
+to name things.
 
-If `SendMessage` is deferred, load it first:
+- Already in a worktree (`.git` is a file) → `git checkout -b <branch>` here.
+- In the main repo → create one beside the repo, matching the existing layout
+  (`<repo-parent>/worktrees/<repo-name>/<short-name>`):
 
-```
-ToolSearch: "select:SendMessage,ListAgents"
-```
+  ```bash
+  git fetch origin --quiet
+  git worktree add "$WT" -b "$BRANCH" "origin/$BASE"
+  ```
 
-If the original implementer is no longer reachable (rare — e.g., its context expired), fall back to a fresh Task with the same specialist and a distilled brief: the plan path, the review findings, and the list of files it touched.
+  Then switch the session into it with `EnterWorktree` (`path: "$WT"`) so subagents inherit the
+  cwd. Never `cd` into the main repo to do branch work; never remove a worktree you didn't create.
 
-### Review loop
+Write or update the ledger header (`branches:` starts as a single entry: the branch just resolved
+or reused). Create todos: Implement · Verify · Draft PR · Review · Fixup · Simplify · Docs? · Wrap.
 
-```
-iteration = 0
-REPEAT:
-    iteration += 1
-    Run Phase 2 review (fresh agent)
+## Phase 1 — Implement
 
-    IF APPROVED or APPROVED_WITH_NOTES:
-        EXIT ✓
+Pick one specialist by platform; `general-purpose` if mixed or the specialist is missing (on
+"agent not found", retry once with `general-purpose`).
 
-    IF NEEDS_WORK:
-        Run Phase 3 fixup (SendMessage to implementer)
-        IF iteration >= 2:
-            Assess how close the last review was to APPROVED and recommend:
-            - Only MINOR issues left, or 1-2 bounded fixes → recommend "ship + track leftovers"
-            - Real blockers still surfacing → recommend "keep iterating"
-            - Reviewer bouncing on different things each round → recommend "escalate to me"
-            AskUserQuestion with your recommendation as option 1.
-            Act on response.
-        GOTO REPEAT
-```
-
-**Iteration cap is 2** (down from 4 in `/implement`). Fresh reviewer cold-starts are the dominant remaining cost. At the cap the coordinator recommends a path on a case-by-case basis rather than looping blindly.
-
-## Optional passes (case-by-case, coordinator's judgment)
-
-After the review loop exits APPROVED, decide whether the change earns a dedicated **docs pass**. Recommend one via `AskUserQuestion` if any of these hold:
-
-- Architecture or a shared pattern changed (new module, changed data flow, new abstraction).
-- Multiple `CLAUDE.md` files would need updates.
-- The plan explicitly called out user-facing documentation.
-- The implementer's Phase 1 report explicitly said "docs update pending" or similar.
-
-Skip silently for small or self-contained changes. When the user approves a docs pass, spawn one fresh general-purpose agent:
+| Platform         | Agent                  |
+| ---------------- | ---------------------- |
+| iOS / Swift      | `pro:swift-pro`        |
+| Android / Kotlin | `pro:mobile-pro`       |
+| React Native     | `pro:react-native-pro` |
+| TypeScript / web | `pro:typescript-pro`   |
+| Backend / API    | `pro:backend-dev`      |
+| mixed / unclear  | `general-purpose`      |
 
 ```
-Task tool:
-  subagent_type: "general-purpose"
-  prompt: |
-    Read the diff on the current branch. Update the CLAUDE.md files (and any
-    other docs) that are now stale as a result. Do NOT create new READMEs.
-    Commit the doc updates with message "docs: update after {session name}".
-    Report which files you updated.
+Agent:
+- subagent_type: {SPECIALIST}
+- prompt: |
+    Implement the plan at {PLAN}. Read it yourself — I have not summarized it for you.
+
+    Follow the plan's steps and file list. Match surrounding code style. Stay in scope:
+    do not refactor, rename, or "improve" anything the plan does not ask for.
+    If the plan is wrong or ambiguous, implement the most reasonable reading and record the
+    assumption in the ledger under "## Implemented" — do not stop to ask.
+
+    Commit in logical units: "{TICKET}: <imperative subject>". Do not push.
+    Append what you did (one line per commit) to the ledger at {LEDGER} under "## Implemented".
+
+    {OUTPUT_CONTRACT}
 ```
 
-Do not spawn this by default. The whole point of implement-lite is not paying for agents that mostly re-read a diff.
+Capture the launch result's `agentId` and record it in the ledger header as `implementer: <id>`.
+If the tool omits it, `ListAgents` to find it by name before Phase 5. This agent stays addressable
+for Phase 5 — resuming it there skips re-deriving codebase context a fresh agent would redo.
 
-## Session completion
+## Phase 2 — Verify
+
+Run **only what the plan specifies** (usually targeted unit tests). No full clean builds unless
+the plan asks. You run these yourself:
+
+```bash
+LOG="$REPO/.claude/implement-lite/verify-$(date +%s).log"
+<plan's test command> > "$LOG" 2>&1; echo "exit=$?"; tail -40 "$LOG"
+```
+
+Record `cmd → pass|fail (log: path)`. On failure, launch the Phase 1 specialist with the **log
+path** and the failing test names — not the log body. Two attempts, then stop and report.
+Do not spend a review pass on code that doesn't build or pass its own tests.
+
+Plan specifies no tests → note "no verification specified" in the ledger and continue.
+
+## Phase 3 — Draft PR (always draft)
+
+```bash
+git push -u origin "$BRANCH"
+```
+
+- **gh:** `gh pr create --draft --base "$BASE" --title "{TICKET}: <subject>" --body "<plan link + WIP>"`
+  (prefix `GH_HOST=<host>` for Enterprise). Body is a placeholder at this point — Phase 8 writes
+  the real one, per `pr-description`.
+- **glab / Android:** delegate to the `create-mr` skill **inside a subagent** — it is already
+  draft-first and knows the templates. Tell it: skip its Step 5.5 code review (Phase 4 covers it),
+  assign no reviewers, and follow `pr-description` for the body content within the template's
+  section structure (what/why, not a commit-by-commit log — Phase 8 will refine it further once
+  review has converged).
+
+Assign no reviewers on a draft — they get notified anyway. Record the URL and `draft: true`.
+
+## Phase 4 — Review (LOCAL ONLY)
+
+Two agents — three when `figma:` is not `none` — **one message**, all scoped to
+`git diff {BASE}...HEAD`. All read the ledger's "Resolved" and "Won't fix" sections and must not
+re-raise settled items.
+
+Shared preamble for both:
+
+```
+    Scope: the local diff `git diff {BASE}...HEAD` in this worktree. The code is on disk —
+    do not fetch, clone, or check out anything.
+
+    ABSOLUTE: this is a local review. Never run `gh pr comment`, `gh pr review`,
+    `glab mr note`, or `glab mr approve`. Never post, publish, or push anything.
+
+    Read {LEDGER} first. Do NOT re-raise anything under "## Resolved" or "## Won't fix".
+
+    Only report an issue you would defend to a senior engineer. Skip: anything a linter,
+    formatter, compiler, or CI catches; pre-existing issues; issues on lines this diff did not
+    touch; nitpicks; missing test coverage unless the plan required it.
+
+    Label every finding BLOCKING (wrong behavior, security, breaks contract),
+    MAJOR (real edge-case bug, missing error handling, unplanned divergence from {PLAN}),
+    or MINOR (style, naming, polish — never blocks).
+
+    Append findings to {LEDGER} under "## Review — iteration {N}" with your source tag.
+    End with exactly one line: `VERDICT: APPROVED` or `VERDICT: NEEDS_WORK`.
+```
+
+**Reviewer A — standards** (source tag `standards`):
+
+| Platform | Instruction                                                                                                                                                                                                 |
+| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ios      | `general-purpose`: "Invoke the `ios-review-pr` skill, but in LOCAL mode: skip its Step 1 entirely (no `gh` fetch, no clone, no temp dir). Apply its checklist and Step 4 summary format to the local diff." |
+| android  | `general-purpose`: "Invoke the `review-code` skill on the local diff (its default scope). Use `git diff {BASE}...HEAD`."                                                                                    |
+| generic  | `general-purpose`: review against the repo's CLAUDE.md files and the conventions of the surrounding code.                                                                                                   |
+
+**Reviewer B — bug hunter** (`general-purpose`, source tag `bug-hunt`): "Read only the diff. Hunt
+logic bugs, unhandled errors, concurrency and lifetime problems, off-by-ones, broken invariants.
+Ignore style and conventions entirely — another reviewer owns those."
+
+**Reviewer C — Figma fidelity** (mandatory whenever `figma:` in the ledger header is not `none`;
+`general-purpose`, source tag `figma-fidelity`): "Invoke the `figma-fidelity-check` skill against
+this local diff (`git diff {BASE}...HEAD`) and the Figma reference {FIGMA_REF} from the ledger
+header. Follow its full verification process — resolve every color/spacing/typography token to
+its concrete value in the live design-system source, check every visual state variant
+(selected/unselected, light/dark, disabled/enabled), and pixel-measure the screenshot where the
+structure is ambiguous. Treat this as a fresh check even if a prior phase already claimed the UI
+matches Figma. Append findings to {LEDGER} under the same '## Review — iteration {N}' heading with
+source tag `figma-fidelity`, then end with the standard VERDICT line." Skip only if the plan and
+diff touch no UI/layout code (e.g. a pure backend or data-layer session) despite `figma:` being
+set — note that skip and why in the ledger instead of launching the agent.
+
+Merge: any surviving **BLOCKING or MAJOR** from any reviewer, including `figma-fidelity` findings
+(a Figma mismatch on a diff-touched screen is at least MAJOR), → `NEEDS_WORK`. Otherwise
+**APPROVED**; MINOR items go to "## Open".
+
+> The false-positive rubric is folded into these prompts on purpose. The upstream skill spends one
+> extra agent _per candidate issue_ scoring confidence; this gets the same filtering for free.
+
+## Phase 5 — Fixup loop (max 2 iterations)
+
+Only on `NEEDS_WORK`. Resume the **same Phase 1 implementer** via `SendMessage` (id from the
+ledger header) instead of launching a fresh subagent — it already has the plan and codebase
+loaded, so it isn't re-deriving context a cold-start would pay for again. This also doesn't
+count against the 8-agent budget, since no new agent is spawned.
+
+```
+SendMessage:
+- to: {IMPLEMENTER_AGENT_ID}
+- message: |
+    Fix the BLOCKING/MAJOR findings under "## Review — iteration {N}" in the ledger at {LEDGER}.
+    Read them there — this message does not repeat them.
+
+    Fix each one, or — if a finding is wrong — add it to "## Won't fix" in the ledger with a
+    one-line reason instead of changing code. Do not fix MINOR items. Do not refactor.
+    Re-run: {VERIFY_CMD}. Commit. Move each fixed item to "## Resolved" with its sha.
+
+    {OUTPUT_CONTRACT}
+```
+
+`SendMessage`/`ListAgents` deferred → `ToolSearch: "select:SendMessage,ListAgents"` once, the
+first time you need them.
+
+**Unreachable** (id missing from the ledger, session expired, `SendMessage` errors) → fall back
+to a fresh Phase 1 launch of {SPECIALIST}, same prompt shape, plan and ledger paths only — never
+paste the findings into that prompt either. Note the fallback in the ledger and update
+`implementer:` to the new agent id. This fresh launch does count against the 8-agent budget.
+
+Then **delta re-review only**: re-launch Phase 4 scoped to the files the fixup touched
+(`git diff --name-only HEAD~<n>..HEAD`), not the whole diff.
+
+```
+iteration 1: review → NEEDS_WORK → fixup → delta re-review
+iteration 2: NEEDS_WORK → fixup → delta re-review
+still NEEDS_WORK → STOP. Summarize the surviving BLOCKING items and AskUserQuestion:
+  ship the draft as-is / one more targeted fixup / hand back to me.
+```
+
+Never loop past 2. Convergence beats completeness — the PR is a draft and a human reviews it next.
+
+## Phase 6 — Simplify (once, after review converges)
+
+Runs _after_ review so it can't invalidate a verdict. Use the `code-simplifier:code-simplifier`
+**agent** (not the `simplify` skill — that would run in your context). Not installed → skip.
+
+```
+Agent:
+- subagent_type: "code-simplifier:code-simplifier"
+- prompt: |
+    Simplify only the code changed in this branch (`git diff {BASE}...HEAD`). Preserve behavior
+    exactly. No new abstractions, no scope creep, no touching unmodified files. Commit.
+    Re-run {VERIFY_CMD} and report pass/fail.
+    State explicitly: `BEHAVIOR_NEUTRAL: yes|no`.
+
+    {OUTPUT_CONTRACT}
+```
+
+`BEHAVIOR_NEUTRAL: no` or tests fail → one delta re-review of the touched files. Otherwise done.
+
+## Phase 7 — Docs (conditional — usually skipped)
+
+Launch an agent **only if** the plan has an explicit documentation task, or the change adds a
+public API / new pattern / new module. Otherwise write "docs: none needed" to the ledger and skip.
+An unconditional docs agent is a full-repo scan that usually produces nothing.
+
+## Phase 8 — Wrap
 
 ```bash
 git push
-gh pr ready
 ```
 
-Report the PR link to the user.
+Update the draft PR body. Consult the `pr-description` skill for how to write it — the ledger is
+your **source material**, not the shape of the output. Pull from it what a reviewer needs (what
+shipped, open MINOR notes worth flagging, plan link) but do not dump the ledger's process detail
+into the description: no commit-by-commit narration, no review-iteration counts, no "fixup applied
+in response to review" changelog. State what the change does and why, one level above the diff;
+mention verification as evidence, not as a log. **Leave it as a draft.**
 
-## Multi-session loop
-
-After finishing a session, check for the next one:
-
-- Look for `SESSION_{N+1}.md`, `SESSION_{N+1}_PLAN.md`, or the next phase section in an inline plan.
-- If found: return to Setup, create a new branch stacked on this session's branch, run the 3-phase pipeline again.
-- If not: EXIT ✓.
-
-Do not stop after session 1 unless it's clearly the only one.
-
-## Todo tracking
-
-Per session:
+Report to the user, in this shape:
 
 ```
-Session N:
-- [ ] Phase 1: Implement (+ inline simplify + docs)
-- [ ] Phase 1.5: Create draft PR (coordinator bash)
-- [ ] Phase 2/3: Review loop (max 2 iterations, fixup via SendMessage)
-- [ ] Optional: docs pass (only if architectural — coordinator recommends)
-- [ ] Mark PR ready
-- [ ] Check for next session
+Draft PR: <url>
+Shipped: <2-4 lines>
+Verify: <cmd> → pass
+Review: APPROVED after N iteration(s) · X resolved, Y won't-fix, Z open MINOR
+Agents used: N/8
 ```
+
+Then **stop.** If more sessions exist (`SESSION_{N+1}*`), name them and `AskUserQuestion` whether
+to continue — one session per invocation, stacked on this branch. Do not auto-advance.
+
+## Budgets
+
+| Limit                         | Value                                                                          | On breach         |
+| ----------------------------- | ------------------------------------------------------------------------------ | ----------------- |
+| Subagents per session         | 8 (a Phase 5 `SendMessage` resume doesn't count; a fallback fresh launch does) | Stop, report, ask |
+| Review→fixup iterations       | 2                                                                              | Stop, ask         |
+| Verify retries                | 2                                                                              | Stop, report      |
+| Full-diff reviews             | 1 (later passes are delta-only)                                                | —                 |
+| Coordinator source-file reads | 0                                                                              | Delegate          |
 
 ## Error handling
 
-- **Specialist agent not found** — retry with `general-purpose`.
-- **Implementer unreachable for fixup** — fall back to fresh Task; see Phase 3.
-- **Reviewer keeps returning NEEDS_WORK past iteration 2** — escalate to user; do not keep looping silently.
-- **Branch conflict on push** — append timestamp suffix, retry once.
-- **`gh pr create` fails** — report the error and the manual command; don't block the pipeline.
-- **Push rejected** — pull with rebase, retry once, then ask user.
-- **Not logged into gh** — ask user to run `gh auth login`.
-- **Implementer committed to wrong branch** — run the branch landing check (see above); merge the previous branch forward into the session branch; do not rebase or force-push already-pushed branches. Prevent recurrence by entering the new worktree (`EnterWorktree`) before spawning the next implementer.
-
-Never force-push. Never amend commits from previous sessions.
-
-## What this skill deliberately does NOT do
-
-- **No separate simplify agent.** The implementer is told to write simple code the first time.
-- **No default docs agent.** The implementer handles `CLAUDE.md` inline. A dedicated docs pass is coordinator-recommended only when the change is architectural or cross-cutting (see Optional passes).
-- **No agent for PR creation.** Coordinator bash, body seeded from the implementer's Phase 1 report.
-- **No blind loop past iteration 2.** At the cap, the coordinator assesses the last review and recommends ship / iterate / escalate — case by case, not a fixed prompt.
-- **No summarization of the session plan.** The plan is the spec; the implementer reads it in full.
-- **No cross-iteration reviewer priming.** Every review is a fresh agent with a clean prompt (see the isolation guardrail in Phase 2).
+- Agent reports `BLOCKED` → `AskUserQuestion` immediately with its one-line reason. Don't guess.
+- Specialist agent not found → retry once with `general-purpose`, note it, continue.
+- Phase 5 implementer unreachable via `SendMessage` → fresh subagent per Phase 1 (ledger pointer
+  only, never the findings text); update `implementer:` in the ledger.
+- Branch exists → append `-2`, retry once; append the new name to the ledger's `branches:`.
+- Push rejected → `git pull --rebase` once, then ask. Never force-push. Never amend another
+  session's commits.
+- `gh`/`glab` not authenticated → give the user the exact login command and pause; do not
+  work around it.
+- Plan and reality disagree (file doesn't exist, API changed) → the implementer records the
+  assumption and continues; you surface it in Phase 8.
 
 ---
 
-**Start now.** Ask for the session plan path if not provided.
+**Start now.** Run Phase 0. Ask for the plan path only if you cannot find it.

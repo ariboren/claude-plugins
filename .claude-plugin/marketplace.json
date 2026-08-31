@@ -47,8 +47,8 @@
     {
       "name": "implement-lite",
       "source": "./implement-lite",
-      "description": "Token-efficient session implementation pipeline using a 3-phase loop with stacked PRs",
-      "version": "1.0.0"
+      "description": "Token-efficient pipeline for executing an implementation plan end to end, with local review and draft PRs",
+      "version": "1.1.0"
     }
   ]
 }
