@@ -2,7 +2,7 @@
 name: implement-lite
 description: |
   Token-efficient pipeline for executing an implementation plan end to end: worktree, implement,
-  verify, DRAFT PR, local platform-aware review, bounded fixup loop, simplify, wrap. Use when
+  verify, DRAFT PR, simplify, local platform-aware review, bounded fixup loop, wrap. Use when
   (1) a plan file exists (SESSION_*.md, *_PLAN.md, docs/plans/*), (2) the user says "implement
   the plan", "run the session", or "implement-lite". Reviews are LOCAL ONLY and never posted to
   the PR/MR. PRs/MRs are always created as drafts.
@@ -32,7 +32,7 @@ routing. You do not read source files, write code, or form review opinions.
 
 1. **Pass by reference.** Subagents get: plan path, ledger path, diff range (`<base>...HEAD`),
    log path. Never the contents. This still holds when resuming an agent via `SendMessage`
-   (Phase 5) — point at the ledger section, never paste findings into the message.
+   (Phase 6) — point at the ledger section, never paste findings into the message.
 2. **Every subagent prompt ends with an output contract.** Verbatim:
 
    > Output contract: ≤250 words. Sections: `RESULT` (one line), `DETAIL` (bullets, file:line),
@@ -42,7 +42,7 @@ routing. You do not read source files, write code, or form review opinions.
 3. **You distill, you don't relay.** 1–3 lines to the user per phase. Detail lives in the ledger.
 4. **Never re-derive what the ledger records.** Read the ledger, not the repo.
 5. **Logs go to files.** `… > "$LOG" 2>&1; tail -40 "$LOG"`. Never let a build log into context.
-6. **Parallel where independent.** Both Phase 4 reviewers launch in a single message.
+6. **Parallel where independent.** All Phase 5 reviewers launch in a single message.
 
 ## Ledger
 
@@ -79,7 +79,7 @@ Schema — append-only, terse:
 
 plan: <path> base: <branch> branches: <branch1>, <branch2> worktree: <path>
 platform: ios|android|generic forge: gh|glab figma: <url>|none pr: <url> (draft)
-agents_used: N/8 implementer: <agent-id> (for Phase 5 SendMessage resume)
+agents_used: N/8 implementer: <agent-id> (for Phase 6 SendMessage resume)
 
 ## Implemented
 
@@ -127,7 +127,7 @@ Resolve:
 | forge    | remote host contains `gitlab` → **glab**; else **gh** (export `GH_HOST=<remote host>` for Enterprise, e.g. `code.espn.com`)                                                                                        |
 | ticket   | ticket key in plan path/body/`$ARGUMENTS` (e.g. `ESPNIOS-12345`)                                                                                                                                                   |
 | branch   | `<git user first name lowercased>/<TICKET>-<slug>` when a ticket exists, else `<slug>`                                                                                                                             |
-| figma    | plan body/`$ARGUMENTS` contains a `figma.com` URL or explicitly references a Figma frame/design/mockup → record the URL (or "referenced, no link"); else **none**. Drives the mandatory Phase 4 fidelity reviewer. |
+| figma    | plan body/`$ARGUMENTS` contains a `figma.com` URL or explicitly references a Figma frame/design/mockup → record the URL (or "referenced, no link"); else **none**. Drives the mandatory Phase 5 fidelity reviewer. |
 
 **Ledger reconciliation (before touching branch/worktree).** Derive `$REPO_ID` and `$LEDGER_DIR` as
 in "Ledger" above — this works from any worktree of the repo, since they all share the same
@@ -145,7 +145,7 @@ name appears anywhere in its `branches:` field. On a match:
 - Read it. Reuse its `worktree:` and most recent `branches:` entry instead of deriving a new
   branch — `git checkout <branch>` there; don't cut a new one.
 - Resume from wherever it left off: "## Review" present with no matching "## Resolved" → re-enter
-  Phase 4; no "## Implemented" yet → start at Phase 1 as normal.
+  Phase 5; no "## Implemented" yet → start at Phase 1 as normal.
 - Only append a new entry to `branches:` if you actually had to cut a new branch (stacked session,
   or the rename-on-rejection case in Error handling).
 
@@ -167,7 +167,7 @@ to name things.
   cwd. Never `cd` into the main repo to do branch work; never remove a worktree you didn't create.
 
 Write or update the ledger header (`branches:` starts as a single entry: the branch just resolved
-or reused). Create todos: Implement · Verify · Draft PR · Review · Fixup · Simplify · Docs? · Wrap.
+or reused). Create todos: Implement · Verify · Draft PR · Simplify · Review · Fixup · Docs? · Wrap.
 
 ## Phase 1 — Implement
 
@@ -201,8 +201,8 @@ Agent:
 ```
 
 Capture the launch result's `agentId` and record it in the ledger header as `implementer: <id>`.
-If the tool omits it, `ListAgents` to find it by name before Phase 5. This agent stays addressable
-for Phase 5 — resuming it there skips re-deriving codebase context a fresh agent would redo.
+If the tool omits it, `ListAgents` to find it by name before Phase 6. This agent stays addressable
+for Phase 6 — resuming it there skips re-deriving codebase context a fresh agent would redo.
 
 ## Phase 2 — Verify
 
@@ -216,7 +216,7 @@ LOG="$REPO/.claude/implement-lite/verify-$(date +%s).log"
 
 Record `cmd → pass|fail (log: path)`. On failure, launch the Phase 1 specialist with the **log
 path** and the failing test names — not the log body. Two attempts, then stop and report.
-Do not spend a review pass on code that doesn't build or pass its own tests.
+Do not spend a simplify or review pass on code that doesn't build or pass its own tests.
 
 Plan specifies no tests → note "no verification specified" in the ledger and continue.
 
@@ -230,18 +230,39 @@ git push -u origin "$BRANCH"
   (prefix `GH_HOST=<host>` for Enterprise). Body is a placeholder at this point — Phase 8 writes
   the real one, per `pr-description`.
 - **glab / Android:** delegate to the `create-mr` skill **inside a subagent** — it is already
-  draft-first and knows the templates. Tell it: skip its Step 5.5 code review (Phase 4 covers it),
+  draft-first and knows the templates. Tell it: skip its Step 5.5 code review (Phase 5 covers it),
   assign no reviewers, and follow `pr-description` for the body content within the template's
   section structure (what/why, not a commit-by-commit log — Phase 8 will refine it further once
   review has converged).
 
 Assign no reviewers on a draft — they get notified anyway. Record the URL and `draft: true`.
 
-## Phase 4 — Review (LOCAL ONLY)
+## Phase 4 — Simplify (once, before review)
+
+Runs _before_ review so reviewers read the code that will actually ship, and so simplification
+can't invalidate a verdict after the fact. Use the `code-simplifier:code-simplifier` **agent**
+(not the `simplify` skill — that would run in your context). Not installed → skip.
+
+```
+Agent:
+- subagent_type: "code-simplifier:code-simplifier"
+- prompt: |
+    Simplify only the code changed in this branch (`git diff {BASE}...HEAD`). Preserve behavior
+    exactly. No new abstractions, no scope creep, no touching unmodified files. Commit.
+    Re-run {VERIFY_CMD} and report pass/fail.
+    State explicitly: `BEHAVIOR_NEUTRAL: yes|no`.
+
+    {OUTPUT_CONTRACT}
+```
+
+Tests fail after simplification, or `BEHAVIOR_NEUTRAL: no` → send it back once to restore
+behavior (or `git revert` its commit) before Phase 5. Never enter review on a red tree.
+
+## Phase 5 — Review (LOCAL ONLY)
 
 Two agents — three when `figma:` is not `none` — **one message**, all scoped to
-`git diff {BASE}...HEAD`. All read the ledger's "Resolved" and "Won't fix" sections and must not
-re-raise settled items.
+`git diff {BASE}...HEAD` (which now includes the Phase 4 simplification commit). All read the
+ledger's "Resolved" and "Won't fix" sections and must not re-raise settled items.
 
 Shared preamble for both:
 
@@ -297,7 +318,7 @@ Merge: any surviving **BLOCKING or MAJOR** from any reviewer, including `figma-f
 > The false-positive rubric is folded into these prompts on purpose. The upstream skill spends one
 > extra agent _per candidate issue_ scoring confidence; this gets the same filtering for free.
 
-## Phase 5 — Fixup loop (max 2 iterations)
+## Phase 6 — Fixup loop (max 2 iterations)
 
 Only on `NEEDS_WORK`. Resume the **same Phase 1 implementer** via `SendMessage` (id from the
 ledger header) instead of launching a fresh subagent — it already has the plan and codebase
@@ -326,8 +347,9 @@ to a fresh Phase 1 launch of {SPECIALIST}, same prompt shape, plan and ledger pa
 paste the findings into that prompt either. Note the fallback in the ledger and update
 `implementer:` to the new agent id. This fresh launch does count against the 8-agent budget.
 
-Then **delta re-review only**: re-launch Phase 4 scoped to the files the fixup touched
-(`git diff --name-only HEAD~<n>..HEAD`), not the whole diff.
+Then **delta re-review only**: re-launch Phase 5 scoped to the files the fixup touched
+(`git diff --name-only HEAD~<n>..HEAD`), not the whole diff. Do not re-run Phase 4 — fixups are
+small and targeted; a second simplify pass would reopen review.
 
 ```
 iteration 1: review → NEEDS_WORK → fixup → delta re-review
@@ -337,25 +359,6 @@ still NEEDS_WORK → STOP. Summarize the surviving BLOCKING items and AskUserQue
 ```
 
 Never loop past 2. Convergence beats completeness — the PR is a draft and a human reviews it next.
-
-## Phase 6 — Simplify (once, after review converges)
-
-Runs _after_ review so it can't invalidate a verdict. Use the `code-simplifier:code-simplifier`
-**agent** (not the `simplify` skill — that would run in your context). Not installed → skip.
-
-```
-Agent:
-- subagent_type: "code-simplifier:code-simplifier"
-- prompt: |
-    Simplify only the code changed in this branch (`git diff {BASE}...HEAD`). Preserve behavior
-    exactly. No new abstractions, no scope creep, no touching unmodified files. Commit.
-    Re-run {VERIFY_CMD} and report pass/fail.
-    State explicitly: `BEHAVIOR_NEUTRAL: yes|no`.
-
-    {OUTPUT_CONTRACT}
-```
-
-`BEHAVIOR_NEUTRAL: no` or tests fail → one delta re-review of the touched files. Otherwise done.
 
 ## Phase 7 — Docs (conditional — usually skipped)
 
@@ -393,7 +396,7 @@ to continue — one session per invocation, stacked on this branch. Do not auto-
 
 | Limit                         | Value                                                                          | On breach         |
 | ----------------------------- | ------------------------------------------------------------------------------ | ----------------- |
-| Subagents per session         | 8 (a Phase 5 `SendMessage` resume doesn't count; a fallback fresh launch does) | Stop, report, ask |
+| Subagents per session         | 8 (a Phase 6 `SendMessage` resume doesn't count; a fallback fresh launch does) | Stop, report, ask |
 | Review→fixup iterations       | 2                                                                              | Stop, ask         |
 | Verify retries                | 2                                                                              | Stop, report      |
 | Full-diff reviews             | 1 (later passes are delta-only)                                                | —                 |
@@ -403,7 +406,7 @@ to continue — one session per invocation, stacked on this branch. Do not auto-
 
 - Agent reports `BLOCKED` → `AskUserQuestion` immediately with its one-line reason. Don't guess.
 - Specialist agent not found → retry once with `general-purpose`, note it, continue.
-- Phase 5 implementer unreachable via `SendMessage` → fresh subagent per Phase 1 (ledger pointer
+- Phase 6 implementer unreachable via `SendMessage` → fresh subagent per Phase 1 (ledger pointer
   only, never the findings text); update `implementer:` in the ledger.
 - Branch exists → append `-2`, retry once; append the new name to the ledger's `branches:`.
 - Push rejected → `git pull --rebase` once, then ask. Never force-push. Never amend another
