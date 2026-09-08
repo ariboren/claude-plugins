@@ -36,13 +36,18 @@ routing. You do not read source files, write code, or form review opinions.
 2. **Every subagent prompt ends with an output contract.** Verbatim:
 
    > Output contract: ≤250 words. Sections: `RESULT` (one line), `DETAIL` (bullets, file:line),
-   > `BLOCKED` (or "none"). Append your full findings to the ledger at {LEDGER}; keep your
-   > reply short. Do not paste code or diffs into your reply.
+   > `BLOCKED` (or "none"). Append to the ledger at {LEDGER} in its schema: one line per item
+   > (findings as `SEVERITY | file:line | issue | source`), ≤15 lines per section, a rationale
+   > line only for BLOCKING findings. No prose paragraphs in the ledger. Keep your reply short.
+   > Do not paste code or diffs into your reply or the ledger.
 
 3. **You distill, you don't relay.** 1–3 lines to the user per phase. Detail lives in the ledger.
 4. **Never re-derive what the ledger records.** Read the ledger, not the repo.
 5. **Logs go to files.** `… > "$LOG" 2>&1; tail -40 "$LOG"`. Never let a build log into context.
 6. **Parallel where independent.** All Phase 5 reviewers launch in a single message.
+7. **The ledger is a log, not a journal.** The append rules in the output contract are the
+   write side; you compact after each fixup (Phase 6). The 250-word reply cap is worthless if
+   agents dump 100-line essays into a file every later agent re-reads.
 
 ## Ledger
 
@@ -79,7 +84,8 @@ Schema — append-only, terse:
 
 plan: <path> base: <branch> branches: <branch1>, <branch2> worktree: <path>
 platform: ios|android|generic forge: gh|glab figma: <url>|none pr: <url> (draft)
-agents_used: N/8 implementer: <agent-id> (for Phase 6 SendMessage resume)
+size: small|full agents_used: N/8
+implementer: <agent-id> reviewers: <agent-ids> (for SendMessage resume)
 
 ## Implemented
 
@@ -104,7 +110,17 @@ agents_used: N/8 implementer: <agent-id> (for Phase 6 SendMessage resume)
 ## Open (MINOR, carried to PR body)
 
 - <issue>
+
+## Post-wrap — v<N>
+
+- <hypothesis/fix> → <result> (<sha>)  # failures too: "X did NOT fix it" is signal
 ```
+
+The schema is a **write-side contract**, not a suggestion: one line per item, ≤15 lines per
+section, rationale lines only for BLOCKING findings. Every later agent — fixup implementer,
+delta reviewers, wrap, post-wrap — reads this file first; a 100-line prose section taxes all of
+them and buries the signal. Enforced twice: in the output contract every subagent gets, and by
+your compaction after each fixup (Phase 6).
 
 ## Phase 0 — Preflight
 
@@ -229,15 +245,33 @@ git push -u origin "$BRANCH"
 - **gh:** `gh pr create --draft --base "$BASE" --title "{TICKET}: <subject>" --body "<plan link + WIP>"`
   (prefix `GH_HOST=<host>` for Enterprise). Body is a placeholder at this point — Phase 8 writes
   the real one, per `pr-description`.
-- **glab / Android:** delegate to the `create-mr` skill **inside a subagent** — it is already
-  draft-first and knows the templates. Tell it: skip its Step 5.5 code review (Phase 5 covers it),
-  assign no reviewers, and follow `pr-description` for the body content within the template's
-  section structure (what/why, not a commit-by-commit log — Phase 8 will refine it further once
-  review has converged).
+- **glab / Android:** `glab mr create --draft --target-branch "$BASE" --title "{TICKET}: <subject>" --description "<plan link + WIP>"`
+  — a placeholder body, mirroring the gh path; Phase 8 writes the real one inside the repo's MR
+  template structure (check `.gitlab/merge_request_templates/`). Spend a `create-mr` subagent
+  only when the repo depends on that skill's Jira/template automation and you can't satisfy it
+  from the template file — it's a budgeted agent for what is otherwise one command. If you do
+  delegate, tell it: skip its Step 5.5 code review (Phase 5 covers it), assign no reviewers.
 
 Assign no reviewers on a draft — they get notified anyway. Record the URL and `draft: true`.
 
-## Phase 4 — Simplify (once, before review)
+## Size gate (after Phase 3 — one command, no agent)
+
+```bash
+git diff --shortstat "$BASE"...HEAD
+```
+
+**small** = fewer than ~150 changed lines (insertions + deletions) AND the diff touches no
+concurrency, security, auth, or payment surface. Anything else — or any doubt — is **full**.
+Record `size: small|full` in the ledger header.
+
+- **small** → skip Phase 4 entirely; Phase 5 runs **one combined reviewer** instead of A+B.
+- **full** → pipeline as written.
+
+Two reviewers plus a simplify agent on a 30-line diff duplicate the diff-reading cost for almost
+no marginal recall — cost should be proportional to change size. The Figma reviewer rule is
+unaffected: fidelity is orthogonal to diff size.
+
+## Phase 4 — Simplify (once, before review; skipped when `size: small`)
 
 Runs _before_ review so reviewers read the code that will actually ship, and so simplification
 can't invalidate a verdict after the fact. Use the `code-simplifier:code-simplifier` **agent**
@@ -258,13 +292,22 @@ Agent:
 Tests fail after simplification, or `BEHAVIOR_NEUTRAL: no` → send it back once to restore
 behavior (or `git revert` its commit) before Phase 5. Never enter review on a red tree.
 
+Record `simplify: <sha> (<n> lines)` in the ledger. `BEHAVIOR_NEUTRAL: yes` is the agent grading
+its own work — weak evidence, and a behavior change that slips past the targeted tests would
+otherwise ship looking like intended code. So the check is structural, not self-reported: when
+the simplify commit changed more than ~50 lines, Phase 5's bug hunter verifies it (below)
+regardless of what the agent claimed.
+
 ## Phase 5 — Review (LOCAL ONLY)
 
-Two agents — three when `figma:` is not `none` — **one message**, all scoped to
-`git diff {BASE}...HEAD` (which now includes the Phase 4 simplification commit). All read the
-ledger's "Resolved" and "Won't fix" sections and must not re-raise settled items.
+Two agents — **one combined agent when `size: small`** — plus the Figma reviewer when `figma:`
+is not `none`. All in **one message**, all scoped to `git diff {BASE}...HEAD` (which now includes
+the Phase 4 simplification commit, if any). All read the ledger's "Resolved" and "Won't fix"
+sections and must not re-raise settled items. Capture every reviewer's `agentId` and record them
+in the ledger header (`reviewers:`) — Phase 6's delta re-review resumes them warm, exactly as
+fixups resume the implementer.
 
-Shared preamble for both:
+Shared preamble for every reviewer:
 
 ```
     Scope: the local diff `git diff {BASE}...HEAD` in this worktree. The code is on disk —
@@ -295,9 +338,18 @@ Shared preamble for both:
 | android  | `general-purpose`: "Invoke the `review-code` skill on the local diff (its default scope). Use `git diff {BASE}...HEAD`."                                                                                    |
 | generic  | `general-purpose`: review against the repo's CLAUDE.md files and the conventions of the surrounding code.                                                                                                   |
 
-**Reviewer B — bug hunter** (`general-purpose`, source tag `bug-hunt`): "Read only the diff. Hunt
-logic bugs, unhandled errors, concurrency and lifetime problems, off-by-ones, broken invariants.
-Ignore style and conventions entirely — another reviewer owns those."
+**Reviewer B — bug hunter** (`general-purpose`, source tag `bug-hunt`): "Hunt logic bugs,
+unhandled errors, concurrency and lifetime problems, off-by-ones, broken invariants. Read the
+diff; where the diff changes a symbol's signature, contract, or behavior, you may also read that
+symbol's direct callers and callees — one hop, nothing further. Broken call-site invariants are
+your highest-value bug class, and a diff-only view is blind to them. Ignore style and conventions
+entirely — another reviewer owns those." When Phase 4's simplify commit changed more than ~50
+lines, add: "Commit {SIMPLIFY_SHA} claims to be behavior-neutral simplification. Diff that commit
+alone and verify the claim; treat any behavior change in it as at least MAJOR."
+
+**Combined reviewer (`size: small` only)** — one `general-purpose` agent carrying both mandates:
+Reviewer A's platform instruction *and* Reviewer B's bug hunt in a single pass, each finding
+tagged `standards` or `bug-hunt`. The Figma reviewer still launches separately when required.
 
 **Reviewer C — Figma fidelity** (mandatory whenever `figma:` in the ledger header is not `none`;
 `general-purpose`, source tag `figma-fidelity`): "Invoke the `figma-fidelity-check` skill against
@@ -333,7 +385,9 @@ SendMessage:
     Read them there — this message does not repeat them.
 
     Fix each one, or — if a finding is wrong — add it to "## Won't fix" in the ledger with a
-    one-line reason instead of changing code. Do not fix MINOR items. Do not refactor.
+    one-line reason instead of changing code. Do not fix MINOR items. Do not refactor beyond
+    the lines you touch, but leave those lines as simple as the fix allows — no simplify pass
+    runs after this.
     Re-run: {VERIFY_CMD}. Commit. Move each fixed item to "## Resolved" with its sha.
 
     {OUTPUT_CONTRACT}
@@ -347,9 +401,19 @@ to a fresh Phase 1 launch of {SPECIALIST}, same prompt shape, plan and ledger pa
 paste the findings into that prompt either. Note the fallback in the ledger and update
 `implementer:` to the new agent id. This fresh launch does count against the 8-agent budget.
 
-Then **delta re-review only**: re-launch Phase 5 scoped to the files the fixup touched
-(`git diff --name-only HEAD~<n>..HEAD`), not the whole diff. Do not re-run Phase 4 — fixups are
-small and targeted; a second simplify pass would reopen review.
+Then **delta re-review only**, scoped to the files the fixup touched
+(`git diff --name-only HEAD~<n>..HEAD`), not the whole diff. Resume the iteration-1 reviewers
+via `SendMessage` (ids from the ledger header's `reviewers:`) instead of cold-starting new ones —
+they already hold the full diff and the ledger in context, and like the implementer resume this
+doesn't count against the budget. A reviewer that's unreachable → fresh launch for that mandate
+only (counts against the budget; note it and update `reviewers:`). Do not re-run Phase 4 —
+fixups are small and targeted; a second simplify pass would reopen review.
+
+**Compact the ledger after each fixup.** You do this yourself — it's the ledger, not source:
+under "## Review — iteration {N}", delete every finding line that now has a "## Resolved" or
+"## Won't fix" entry, keeping the heading and any still-open lines. The one-line entries under
+"## Resolved"/"## Won't fix" are the durable record; the resolved detail is dead weight for
+every agent that reads the file after you.
 
 ```
 iteration 1: review → NEEDS_WORK → fixup → delta re-review
@@ -392,12 +456,28 @@ Agents used: N/8
 Then **stop.** If more sessions exist (`SESSION_{N+1}*`), name them and `AskUserQuestion` whether
 to continue — one session per invocation, stacked on this branch. Do not auto-advance.
 
+## Post-wrap fixes
+
+Work often continues after wrap: the user tests the build and reports something broken. Do not
+freestyle-debug — a post-wrap fix re-enters Phase 6 semantics with its own small budget:
+
+- Resume the implementer via `SendMessage` with the symptom and the ledger path (expired →
+  fresh specialist launch, counts against the budget).
+- Each attempt is one line under `## Post-wrap — v<N>`: hypothesis → result, failures included
+  ("X did NOT fix it" is signal for the next attempt) — the append contract applies here too.
+- Re-run {VERIFY_CMD} after each attempt. BLOCKING-class fix, or more than ~50 lines touched →
+  delta re-review it (warm reviewer resume, as in Phase 6).
+- **2 attempts per reported issue**, then stop and `AskUserQuestion` — same convergence rule as
+  Phase 6.
+- Push; the PR stays a draft.
+
 ## Budgets
 
 | Limit                         | Value                                                                          | On breach         |
 | ----------------------------- | ------------------------------------------------------------------------------ | ----------------- |
 | Subagents per session         | 8 (a Phase 6 `SendMessage` resume doesn't count; a fallback fresh launch does) | Stop, report, ask |
 | Review→fixup iterations       | 2                                                                              | Stop, ask         |
+| Post-wrap attempts per issue  | 2 (re-enters Phase 6 semantics)                                                | Stop, ask         |
 | Verify retries                | 2                                                                              | Stop, report      |
 | Full-diff reviews             | 1 (later passes are delta-only)                                                | —                 |
 | Coordinator source-file reads | 0                                                                              | Delegate          |
