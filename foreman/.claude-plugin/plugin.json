@@ -1,0 +1,10 @@
+{
+  "name": "foreman",
+  "version": "1.0.0",
+  "description": "Collaborative coordinator for working directly on the default branch: discuss, file issues, run implementer subagents in waves, gate on plans, deploys, spend and a simplify-review-fix loop",
+  "author": {
+    "name": "Ari Borensztein"
+  },
+  "repository": "https://github.com/ariboren/claude-plugins",
+  "license": "MIT"
+}

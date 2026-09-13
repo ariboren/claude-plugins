@@ -16,6 +16,33 @@ Then install individual plugins as needed.
 
 ## Plugins
 
+### foreman
+
+Collaborative coordinator for ad-hoc work straight on the default branch. You talk a problem through with one session (the foreman); it files the agreed work as GitHub issues, splits it into waves of implementer subagents with disjoint file ownership, and runs them to completion.
+
+```
+/plugin install foreman@ariboren
+```
+
+**Usage:**
+
+```
+/foreman [issue-number | topic]
+```
+
+**Phases:**
+
+1. **Preflight** - Resolve repo parameters (checks, deploy command, labels, spend cap), detect watchers
+2. **Discuss, file issues** - Investigate from data, recommend, file issues with baseline/todos/rejected options
+3. **Waves** - Map todos to files; one owner per file; order by dependency
+4. **Brief and launch** - Shared brief + per-agent prompt; every agent plans first and waits for sign-off
+5. **Coordinate** - Review plans, check commits, deploy from a clean worktree between waves, file follow-ups
+6. **Quality gate** - Fresh simplify → fresh review → owners fix → brand-new fix reviewer, on the exact commit range
+
+**vs. implement-lite:** no plan file, no branch, no PR. Use implement-lite for a finished `SESSION_N.md` plan.
+
+---
+
 ### implement
 
 Execute multi-session implementations with stacked PRs and an automated agent pipeline.
