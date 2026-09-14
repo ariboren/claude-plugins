@@ -1,6 +1,8 @@
 # Implementer prompt (one per agent)
 
-Launch in the background, on the strongest model, one agent per scope. Name the agent after its
+Launch in the background, one agent per scope, on the tier `~/.claude/model-policy.md` gives
+(usually `opus`, cross-cutting scopes included; `fable` only when the policy scores it 3+, e.g. a
+cross-cutting scope that also holds unchecked auth, concurrency, or payment invariants). Name the agent after its
 scope (e.g. `399-summary-split`) so `SendMessage` and `state.md` can refer to it.
 
 ```
@@ -25,6 +27,10 @@ Interfaces later waves depend on:
 
 Already landed that you build on: {shas, or "nothing yet"}.
 
+{Include when Model = fable: "You are on the strongest tier. Delegate searches, summaries and
+mechanical edits to `sonnet` subagents (paths, not contents); reason yourself on the judgment this
+task exists for, and read in full anything you are judging."}
+
 Write a quick plan and stop: files, approach, tests, open questions. Do not edit anything until
 the foreman signs off.
 
@@ -44,6 +50,9 @@ Deploy: {"message me when you need it deployed" | "no deploy needed"}.
 If the agent's plan was written before your reply arrived, re-send this in full.
 
 ## Resume for a review finding
+
+Resume the owner: context wins. A purely mechanical finding (rename, a missing export) may go to a
+fresh `sonnet` agent instead.
 
 ```
 Review pass {N} left findings for code you wrote: see "## Review — pass {N}" in

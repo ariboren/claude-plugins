@@ -27,7 +27,7 @@ harness. Every paid step needs the user's explicit yes and an estimate first.
 
 ## Judges
 
-- **Fresh agents on the strongest model,** blind to which output is baseline and which is candidate,
+- **Fresh `judge` agents (`fable`),** blind to which output is baseline and which is candidate,
   with the order randomised per item. Keep the unblinding key in a separate file the judges never see.
 - **Split the items across several agents** to keep each one's context small and to spread judge bias.
 - **One pass per dimension**, each a separate prompt:

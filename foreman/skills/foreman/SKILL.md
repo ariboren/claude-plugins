@@ -34,6 +34,8 @@ already exists, start at Phase 2.
 | Spend money or touch production without the user's explicit yes          | Includes eval harnesses, paid LLM runs, production data exports, and prod deploys.                               |
 | Work around a permission denial, for yourself or for an agent            | Ask the user. They may run the command themselves with `! <cmd>`.                                                |
 | Resume a reviewer for a second pass                                      | A resumed reviewer grades its own findings. Every review pass is a fresh agent.                                  |
+| Resume an agent for work below its tier                                  | Its model is fixed at spawn. Score the follow-up first (`~/.claude/model-policy.md`, Resume or fresh).           |
+| Spawn an agent without an explicit `model`                               | It inherits your tier silently. Score it by `~/.claude/model-policy.md`; the global Agent hook blocks the spawn. |
 | Stash, reset, checkout, revert, `git add -A`, or `--no-verify`           | Any of them destroys or ships another agent's work, or skips the gate that catches it.                           |
 | Invoke `simplify` or a review skill in your own context                  | Skills load into the calling context. Run them inside a fresh subagent.                                          |
 | Use `code-review:code-review`, `/review`, or anything that posts to a PR | There's no PR here. Review output goes to the state file and to chat only.                                       |
@@ -52,6 +54,11 @@ already exists, start at Phase 2.
 5. **Your own reads are for coordination.** Reading code and data during Phase 1 discussion is
    fine. Once agents are running, check their work with `git show --stat` and the state file. If a
    change needs a close read, delegate it.
+6. **You coordinate; you don't read.** This session usually runs on the strongest tier, so spend
+   it on coordination. Delegate inventories, searches, summaries, and mechanical edits to `sonnet`
+   subagents, passing paths and exact decisions, not contents. Reason yourself only on the calls
+   that need it: tier assignments, plan sign-off, gate decisions. Read in full only what you are
+   judging, such as a diff you are reviewing or a failing trace.
 
 ## Run directory
 
@@ -130,8 +137,8 @@ paths in `state.md` as off-limits and tell agents so.
 
 Map every todo to the files it touches, then build the wave table in `state.md`:
 
-| Wave | Work | Agent | Owns (files) | Depends on | Status |
-| ---- | ---- | ----- | ------------ | ---------- | ------ |
+| Wave | Work | Agent | Model | Owns (files) | Depends on | Status |
+| ---- | ---- | ----- | ----- | ------------ | ---------- | ------ |
 
 - **One owner per file per wave.** If two todos need the same file, merge them into one agent or
   run them in consecutive waves.
@@ -154,9 +161,10 @@ Map every todo to the files it touches, then build the wave table in `state.md`:
 2. **One background agent per scope,** prompt from `templates/implementer-prompt.md`: its issue
    section, the files it owns, the files other agents own right now, the interfaces it must expose
    for later waves, and "write a quick plan and stop".
-3. **Strongest model.** Set `model` to the strongest tier the Agent tool offers, or omit it if you
-   already run on that tier. Use `general-purpose` unless a specialist clearly fits. The agent needs
-   `SendMessage` to reach you.
+3. **Model by policy.** Read `~/.claude/model-policy.md` (fallback: `references/model-policy.md`) and score each task on its five axes
+   (thresholds, floor, and the fable-reviewer rule are there). Always
+   pass `model` explicitly and record it in the wave table. Use `general-purpose` unless a
+   specialist clearly fits. The agent needs `SendMessage` to reach you.
 4. **Start a wave's agents in one message.** Hold later waves until their prerequisites have landed.
    A plan built on guessed function names costs a second planning round.
 5. Record each agent's name and id in `state.md` as it starts.
@@ -205,6 +213,9 @@ data backfill, closing an issue someone else filed): tell the user before acting
 **Follow-ups agents surface:** file them right away (Phase 1, step 5). Tick the todos that other
 work already fixed, and note which commit fixed them.
 
+**Follow-ups to a running agent** (a commit, fixture regeneration, a test fix): score it before
+resuming. Lower tier than the agent → fresh agent at that tier with pointers, unless context wins.
+
 **Update the user briefly** after each event: what landed, what's running, what's waiting on them.
 
 ## Deploy
@@ -231,14 +242,14 @@ Record `<sha> → <target>` under Deploys in `state.md`, then tell the agents wa
 Runs once all the implementation waves have landed, before the final stage (a verification run, a
 prod deploy, closing the issue). Every step uses the exact range `{BASE_SHA}..{HEAD_SHA}` so other
 sessions' commits stay out. When another session committed inside the range, list the effort's own
-shas instead of a range. Prompts are in `templates/reviewer-prompt.md`.
+shas instead of a range. Prompts are in `templates/reviewer-prompt.md`; each names its default tier.
 
 1. **Simplify.** A fresh agent runs the `simplify` skill on the range, commits its cleanups under the
    same working rules, and reruns the checks. Record its shas.
 2. **Review.** A separate fresh agent reviews the range, simplify commits included. Findings go into
    `state.md` under `## Review — pass N`, one line each, with an owner column: the agent that wrote
    that code, taken from `git log --format=%h -- <file>` against the Landed table.
-3. **Fix.** Send each BLOCKING/MAJOR finding back to its owner by `SendMessage`. The owner already
+3. **Fix.** Send each BLOCKING/MAJOR finding back to its owner by `SendMessage` (context wins here). The owner already
    has the context, so point it at the state file section and don't paste the findings. An owner
    that's unreachable gets a fresh agent with the same pointers. An owner may reject a finding with a
    one-line reason under `## Won't fix`.

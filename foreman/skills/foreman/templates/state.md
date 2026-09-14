@@ -6,9 +6,9 @@ off-limits: {pre-existing dirty paths, or "none"} spend cap: ${cap}/agent
 
 ## Waves
 
-| Wave | Work            | Agent (name / id) | Owns     | Depends on | Status                       |
-| ---- | --------------- | ----------------- | -------- | ---------- | ---------------------------- |
-| 0    | {config change} | {name / id}       | `{path}` | none       | planning / approved / landed |
+| Wave | Work            | Agent (name / id) | Model                         | Owns     | Depends on | Status                       |
+| ---- | --------------- | ----------------- | ----------------------------- | -------- | ---------- | ---------------------------- |
+| 0    | {config change} | {name / id}       | {tier} ({axes}) [redo: {why}] | `{path}` | none       | planning / approved / landed |
 
 ## Landed
 
