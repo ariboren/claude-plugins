@@ -10,7 +10,7 @@ allowed-tools: Task, Bash, TodoWrite, AskUserQuestion, Skill, Read, Glob
 
 # Implement: Session Implementation Pipeline
 
-You are a **coordinator only**. Orchestrate a 6-step pipeline for each session, then loop to the next session—do NOT implement, review, or document anything yourself.
+You are a **coordinator only**. Orchestrate a 6-step pipeline for each session, then loop to the next session—do NOT implement, review, or document anything yourself. Model per spawn follows the subagent model policy (`~/.claude/model-policy.md`; a global hook blocks spawns without `model`): score the task, pass `model` explicitly.
 
 ## Optional Dependencies
 
@@ -96,10 +96,17 @@ Read the session plan to understand its primary domain, then select the most rel
 
 Use your judgment—pick whichever installed agent best matches the domain. If the specialist fails (not found), retry with `general-purpose`. Use `general-purpose` directly if domain is mixed or no clear specialist applies.
 
+**Model:** `opus`; `fable` when the session is cross-cutting and holds invariants no test checks (auth, concurrency, payments). Remember the model—Steps 3 and 4 follow it. When `fable`, include this clause in the spawn prompt:
+
+> You are on the strongest tier. Delegate searches, summaries and mechanical edits to `sonnet` subagents (paths, not contents); reason yourself on the judgment this task exists for, and read in full anything you are judging.
+
 ```
 Task tool:
 - subagent_type: {SELECTED_AGENT}
+- model: {STEP_1_MODEL}  # "opus", or "fable" per rule above
 - prompt: |
+    {IF fable: FABLE_CLAUSE}
+
     Implement the session plan at: {SESSION_PLAN_PATH}
 
     Read the plan thoroughly, then implement all changes described.
@@ -138,6 +145,8 @@ Task tool:
 - prompt: "Simplify the recently modified code in this session."
 ```
 
+**Model:** the agent pins `opus` (one tier above the `sonnet` score, allowed by policy); do not pass `model`.
+
 The agent reviews recently modified code for clarity and maintainability. If unavailable, proceed to Step 3—simplification is a nice-to-have refinement.
 
 ### Step 3: Review Loop
@@ -155,12 +164,17 @@ Skill tool:
 - skill: "code-review"
 ```
 
-If `/code-review` is not installed, fall back to manual review:
+If `/code-review` is not installed, fall back to manual review.
+
+**Model:** `opus`; `fable` when Step 1 ran on `fable` or the diff is a full pass over auth/concurrency/payments. When `fable`, include the fable clause (Step 1) in the prompt.
 
 ```
 Task tool:
 - subagent_type: "general-purpose"
+- model: {REVIEW_MODEL}  # "opus", or "fable" per rule above
 - prompt: |
+    {IF fable: FABLE_CLAUSE}
+
     Review the implementation against: {SESSION_PLAN_PATH}
 
     ## Evaluation Criteria
@@ -201,10 +215,15 @@ Only run if Step 3 outputs "NEEDS_WORK".
 
 Use the **same specialized agent** as Step 1 for domain consistency.
 
+**Model:** same as Step 1—fixing its own code, context wins. Prefer resuming the Step 1 agent (`SendMessage` with its ID) over a fresh spawn; spawn fresh only if it can't be resumed, with the same model. When `fable`, include the fable clause in the prompt.
+
 ```
 Task tool:
 - subagent_type: {SAME_AGENT_AS_STEP_1}
+- model: {STEP_1_MODEL}
 - prompt: |
+    {IF fable: FABLE_CLAUSE}
+
     Fix the issues identified in the review:
 
     {REVIEW_ISSUES}
@@ -253,6 +272,7 @@ The review loop catches regressions, not stylistic disagreements between hypothe
 ```
 Task tool:
 - subagent_type: "general-purpose"
+- model: "opus"
 - prompt: |
     Update documentation for the completed session.
 

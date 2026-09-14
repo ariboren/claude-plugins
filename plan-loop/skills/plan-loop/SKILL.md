@@ -12,7 +12,7 @@ model: opus
 
 # Plan Loop: Comprehensive Planning with Subagent Review
 
-You are a **coordinator only**. Your role is to orchestrate subagents—do NOT read files, analyze code, or do any planning work yourself. Minimize your context usage and delegate ALL substantive work to subagents.
+You are a **coordinator only**. Your role is to orchestrate subagents—do NOT read files, analyze code, or do any planning work yourself. Minimize your context usage and delegate ALL substantive work to subagents. Model per spawn follows the subagent model policy (`~/.claude/model-policy.md`; a global hook blocks spawns without `model`): score the task, pass `model` explicitly.
 
 ## Coordinator Rules
 
@@ -96,6 +96,7 @@ Determine plan file path and project conventions. Do NOT hardcode paths—discov
 ```
 Task tool:
 - subagent_type: "Explore"
+- model: "sonnet"
 - prompt: |
     Determine where to write the implementation plan for: {OBJECTIVE}
 
@@ -136,11 +137,17 @@ Use your judgment—pick whichever installed agent best matches the domain. If t
 
 Remember which agent you selected—use the same one for fixup.
 
+**Model:** `opus` by default; `fable` when the plan is multi-session or gates several waves of agents (underspecified + broad + amplified). Remember the model too—Phase 5 review and fixup follow it. When `fable`, include this clause in the spawn prompt:
+
+> You are on the strongest tier. Delegate searches, summaries and mechanical edits to `sonnet` subagents (paths, not contents); reason yourself on the judgment this task exists for, and read in full anything you are judging.
+
 ```
 Task tool:
 - subagent_type: {SELECTED_AGENT}
-- model: "opus"
+- model: {PHASE_4_MODEL}  # "opus", or "fable" per rule above
 - prompt: |
+    {IF fable: FABLE_CLAUSE}
+
     Create implementation plan for the following requirements:
 
     {REQUIREMENTS_FROM_INTERVIEW}
@@ -180,11 +187,15 @@ Each review is a **clean slate evaluation**. Do NOT tell reviewers what previous
 
 Use `Plan` agent here—it's ideal for architectural evaluation and doesn't need Write/Edit (review is read-only).
 
+**Model:** `opus`; `fable` when Phase 4 ran on `fable` (reviewer of a fable artifact is fable). When `fable`, include the fable clause (Phase 4) in the prompt.
+
 ```
 Task tool:
 - subagent_type: "Plan"
-- model: "opus"
+- model: {PHASE_4_MODEL}  # "fable" if Phase 4 was fable, else "opus"
 - prompt: |
+    {IF fable: FABLE_CLAUSE}
+
     You are a plan reviewer. Evaluate this plan pragmatically.
 
     Plan file: {PLAN_FILE_PATH}
@@ -239,11 +250,15 @@ Only launch if reviewer output "NEEDS_WORK".
 
 Use the **same agent** as Phase 4 for domain consistency. Must have Write/Edit access (never use `Plan` here).
 
+**Model:** the same model Phase 4 used—fixing its own plan, context wins. When `fable`, include the fable clause in the prompt.
+
 ```
 Task tool:
 - subagent_type: {SAME_AGENT_AS_PHASE_4}
-- model: "opus"
+- model: {PHASE_4_MODEL}
 - prompt: |
+    {IF fable: FABLE_CLAUSE}
+
     Fix the following issues in the plan at {PLAN_FILE_PATH}:
 
     {ISSUES_FROM_REVIEWER}
@@ -310,7 +325,7 @@ When loop exits, launch final subagent to summarize:
 ```
 Task tool:
 - subagent_type: "Plan"
-- model: "haiku"
+- model: "sonnet"
 - prompt: |
     Read the plan at {PLAN_FILE_PATH} and provide a brief summary:
     - What the plan covers

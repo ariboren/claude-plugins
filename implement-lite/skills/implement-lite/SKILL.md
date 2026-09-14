@@ -28,6 +28,36 @@ routing. You do not read source files, write code, or form review opinions.
 | Read source files yourself                                                     | Delegate. You may read the plan and the ledger, and run git/test commands.                                                                               |
 | Exceed the agent budget                                                        | 8 subagent launches per session. On the 8th, stop and report.                                                                                            |
 
+## Models and the Orchestration table
+
+A plan may open with an `## Orchestration` table (Phase | Agent type | Model | Notes). When present
+it is authoritative: launch each phase's agent with that `subagent_type` and pass that `model`. A
+phase the table leaves blank uses the default below. That is how a plan overrides the policy.
+
+**Default policy** (canonical: `~/.claude/model-policy.md`; keep in sync). Score the
+task, one point each: **unchecked** (no test, typecheck, reviewer or owner read-through would catch
+a wrong result), **underspecified** (the agent picks the approach), **interpretive** (reads prose,
+data, or a diff and judges it), **broad** (holds invariants across many files or systems),
+**amplified** (the output is reused many times downstream: a rubric, a prompt, a plan that gates
+several waves). 0 → `sonnet`, 1–2 → `opus`, 3+ → `fable`. Spend, production, or measurement work
+never runs below `opus`. A reviewer of a fable artifact is fable. Always pass `model` explicitly. A
+coordinator on the strongest tier coordinates: it delegates inventories, summaries and mechanical
+edits to `sonnet` subagents (paths, not contents) and reads in full only what it judges; any
+`fable` spawn prompt carries the same instruction.
+
+| Phase                           | Default                                                                                                          |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| 1 Implement, Phase 2 retry      | `opus`; `fable` when the diff is cross-cutting and holds invariants no test checks (auth, concurrency, payments) |
+| 4 Simplify                      | `sonnet`                                                                                                         |
+| 5 Reviewer A standards, Figma   | `opus`                                                                                                           |
+| 5 Reviewer B bug hunt, combined | `opus`; `fable` when Phase 1 ran on fable, or `size: full` over auth/concurrency/payments                        |
+| 7 Docs                          | `opus`                                                                                                           |
+
+**Resume rule.** A resumed agent keeps its spawn model. Phase 6 fixups and delta reviews resume
+(context wins: the work is about the agent's own code or findings). Any other follow-up that scores
+below the agent's tier (a commit, a rename, fixture regeneration) goes to a fresh agent at its own
+tier, with ledger pointers. Record the tier per phase on the ledger's `models:` line.
+
 ## Token Contract
 
 1. **Pass by reference.** Subagents get: plan path, ledger path, diff range (`<base>...HEAD`),
@@ -86,6 +116,7 @@ plan: <path> base: <branch> branches: <branch1>, <branch2> worktree: <path>
 platform: ios|android|generic forge: gh|glab figma: <url>|none pr: <url> (draft)
 size: small|full agents_used: N/8
 implementer: <agent-id> reviewers: <agent-ids> (for SendMessage resume)
+models: implement=<tier> simplify=<tier> review=<tier>[,<tier>] docs=<tier> # add "redo: <why>" when a phase is redone
 
 ## Implemented
 
@@ -113,7 +144,7 @@ implementer: <agent-id> reviewers: <agent-ids> (for SendMessage resume)
 
 ## Post-wrap — v<N>
 
-- <hypothesis/fix> → <result> (<sha>)  # failures too: "X did NOT fix it" is signal
+- <hypothesis/fix> → <result> (<sha>) # failures too: "X did NOT fix it" is signal
 ```
 
 The schema is a **write-side contract**, not a suggestion: one line per item, ≤15 lines per
@@ -348,7 +379,7 @@ lines, add: "Commit {SIMPLIFY_SHA} claims to be behavior-neutral simplification.
 alone and verify the claim; treat any behavior change in it as at least MAJOR."
 
 **Combined reviewer (`size: small` only)** — one `general-purpose` agent carrying both mandates:
-Reviewer A's platform instruction *and* Reviewer B's bug hunt in a single pass, each finding
+Reviewer A's platform instruction _and_ Reviewer B's bug hunt in a single pass, each finding
 tagged `standards` or `bug-hunt`. The Figma reviewer still launches separately when required.
 
 **Reviewer C — Figma fidelity** (mandatory whenever `figma:` in the ledger header is not `none`;

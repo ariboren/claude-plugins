@@ -10,7 +10,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, TodoW
 
 # Prompt Review
 
-A progressive, multi-agent workflow for reviewing and improving LLM prompts.
+A progressive, multi-agent workflow for reviewing and improving LLM prompts. Model per spawn follows the subagent model policy (`~/.claude/model-policy.md`; a global hook blocks spawns without `model`): score the task, pass `model` explicitly.
 
 ## How It Works
 
@@ -141,8 +141,12 @@ Pass summarized best practices to review agents. If fetch fails, proceed with bu
 ### Step 1: Initial Review (prompt-pro A)
 
 ```
-Task(subagent_type: "pro:prompt-pro")  # fallback: "general-purpose"
+Task(subagent_type: "pro:prompt-pro", model: {REVIEW_MODEL})  # fallback: "general-purpose"
 ```
+
+**Model:** `opus`; `fable` when the prompt under review is production- or eval-facing (its output is unchecked, interpretive and amplified). When `fable`, include this clause in the prompt:
+
+> You are on the strongest tier. Delegate searches, summaries and mechanical edits to `sonnet` subagents (paths, not contents); reason yourself on the judgment this task exists for, and read in full anything you are judging.
 
 Pass review file + reference docs. Instruct:
 
@@ -154,8 +158,10 @@ Pass review file + reference docs. Instruct:
 ### Step 2: Secondary Review (prompt-pro B)
 
 ```
-Task(subagent_type: "pro:prompt-pro")  # fallback: "general-purpose"
+Task(subagent_type: "pro:prompt-pro", model: {REVIEW_MODEL})  # fallback: "general-purpose"
 ```
+
+**Model:** same as Step 1, fable clause included when `fable`.
 
 Pass Agent A's output + original prompt. Instruct:
 
@@ -167,8 +173,10 @@ Pass Agent A's output + original prompt. Instruct:
 ### Step 3: Implementation (general-purpose C)
 
 ```
-Task(subagent_type: "general-purpose")
+Task(subagent_type: "general-purpose", model: "sonnet")
 ```
+
+**Model:** `sonnet`—applies approved text; Step 4 checks it.
 
 Instruct:
 
@@ -180,8 +188,10 @@ Instruct:
 ### Step 4: Verification (general-purpose D)
 
 ```
-Task(subagent_type: "general-purpose")
+Task(subagent_type: "general-purpose", model: "sonnet")
 ```
+
+**Model:** `sonnet`—compares against the approved version, a checkable diff.
 
 Instruct:
 
