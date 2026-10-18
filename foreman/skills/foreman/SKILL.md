@@ -54,9 +54,9 @@ already exists, start at Phase 2.
 5. **Your own reads are for coordination.** Reading code and data during Phase 1 discussion is
    fine. Once agents are running, check their work with `git show --stat` and the state file. If a
    change needs a close read, delegate it.
-6. **You coordinate; you don't read.** This session usually runs on the strongest tier, so spend
-   it on coordination. Delegate inventories, searches, summaries, and mechanical edits to `sonnet`
-   subagents, passing paths and exact decisions, not contents. Reason yourself only on the calls
+6. **You coordinate; you don't read.** This session runs on Sonnet at medium effort, so spend
+   it on coordination. Hand noisy searches and test runs to `scout` and `runner`, and mechanical
+   edits to `mechanical`, passing paths and exact decisions, not contents. Reason yourself only on the calls
    that need it: tier assignments, plan sign-off, gate decisions. Read in full only what you are
    judging, such as a diff you are reviewing or a failing trace.
 
@@ -162,9 +162,10 @@ Map every todo to the files it touches, then build the wave table in `state.md`:
    section, the files it owns, the files other agents own right now, the interfaces it must expose
    for later waves, and "write a quick plan and stop".
 3. **Model by policy.** Read `~/.claude/model-policy.md` (fallback: `references/model-policy.md`) and score each task on its five axes
-   (thresholds, floor, and the fable-reviewer rule are there). Always
-   pass `model` explicitly and record it in the wave table. Use `general-purpose` unless a
-   specialist clearly fits. The agent needs `SendMessage` to reach you.
+   (thresholds, floor, pinned roles and the escalation ladder are there). Prefer a
+   pinned role (`implementer`, `planner`, `critical`, `judge`, `scout`, `runner`, `mechanical`),
+   which needs no `model`; otherwise pass `model` explicitly. Record the role or model in the wave
+   table. Use `general-purpose` only when no role fits. The agent needs `SendMessage` to reach you.
 4. **Start a wave's agents in one message.** Hold later waves until their prerequisites have landed.
    A plan built on guessed function names costs a second planning round.
 5. Record each agent's name and id in `state.md` as it starts.

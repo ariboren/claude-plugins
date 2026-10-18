@@ -39,19 +39,23 @@ task, one point each: **unchecked** (no test, typecheck, reviewer or owner read-
 a wrong result), **underspecified** (the agent picks the approach), **interpretive** (reads prose,
 data, or a diff and judges it), **broad** (holds invariants across many files or systems),
 **amplified** (the output is reused many times downstream: a rubric, a prompt, a plan that gates
-several waves). 0 → `sonnet`, 1–2 → `opus`, 3+ → `fable`. Spend, production, or measurement work
-never runs below `opus`. A reviewer of a fable artifact is fable. Always pass `model` explicitly. A
-coordinator on the strongest tier coordinates: it delegates inventories, summaries and mechanical
-edits to `sonnet` subagents (paths, not contents) and reads in full only what it judges; any
-`fable` spawn prompt carries the same instruction.
+several waves). 0 → `sonnet`, 1–2 → `opus`, 3+ → `critical` (opus/high), measurement → `judge`
+(opus/xhigh). Spend, production, or measurement work never runs below `opus`. Prefer the pinned
+roles in `~/.claude/agents/` (`scout`, `runner`, `mechanical`, `implementer`, `planner`, `critical`,
+`judge`): a pinned role needs no `model`, and the spawn hook blocks a `model` that differs from its
+pin. `escalation` (opus/max) and Fable only after a recorded failure on the rung below, with an
+`ESCALATION:` line in the prompt; never start there. Any other spawn passes `model` explicitly. A
+coordinator coordinates: it hands noisy searches and test runs to `scout`/`runner`, mechanical
+edits to `mechanical` (paths, not contents), and reads in full only what it judges; a `critical`,
+`judge` or `escalation` spawn prompt carries the same instruction.
 
-| Phase                           | Default                                                                                                          |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 1 Implement, Phase 2 retry      | `opus`; `fable` when the diff is cross-cutting and holds invariants no test checks (auth, concurrency, payments) |
-| 4 Simplify                      | `sonnet`                                                                                                         |
-| 5 Reviewer A standards, Figma   | `opus`                                                                                                           |
-| 5 Reviewer B bug hunt, combined | `opus`; `fable` when Phase 1 ran on fable, or `size: full` over auth/concurrency/payments                        |
-| 7 Docs                          | `opus`                                                                                                           |
+| Phase                           | Default                                                                                          |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1 Implement, Phase 2 retry      | `implementer`; `critical` when the diff is cross-cutting and holds invariants no test checks (auth, concurrency, payments) |
+| 4 Simplify                      | `implementer`                                                                                    |
+| 5 Reviewer A standards, Figma   | `planner`                                                                                        |
+| 5 Reviewer B bug hunt, combined | `planner`; `critical` when Phase 1 ran on `critical`, or `size: full` over auth/concurrency/payments |
+| 7 Docs                          | `planner`                                                                                        |
 
 **Resume rule.** A resumed agent keeps its spawn model. Phase 6 fixups and delta reviews resume
 (context wins: the work is about the agent's own code or findings). Any other follow-up that scores

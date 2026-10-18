@@ -4,9 +4,10 @@ Every agent here is **fresh**, launched with `Agent`, never resumed with `SendMe
 reviewer grades its own findings. Scope is always an exact range or an explicit sha list, never
 `HEAD~n`, because other sessions may commit to the same branch.
 
-Tiers (`~/.claude/model-policy.md`): simplify `sonnet`; review `opus`, or `fable` when the policy
-scores it 3+ (e.g. a broad range over auth, concurrency, or payments) or when a `fable` agent wrote
-the code; fix review `opus`, or `fable` when the fixes are to fable-authored code.
+Roles (`~/.claude/model-policy.md`): simplify `implementer`; review `planner`, or `critical` when
+the policy scores it 3+ (e.g. a broad range over auth, concurrency, or payments) or when a
+`critical` agent wrote the code; fix review `planner`, or `critical` when the fixes are to
+critical-authored code. Escalate a failed review only with an `ESCALATION:` line.
 
 ## Simplify (step 1)
 
@@ -38,9 +39,9 @@ Scope: exactly `git diff {BASE_SHA}..{HEAD_SHA}` ({or: these commits: sha, sha})
 simplify commits {SIMPLIFY_SHAS}. The code is on disk. Don't fetch, check out, or modify
 anything, and don't commit.
 
-{Include when Model = fable: "You are on the strongest tier. Delegate searches, summaries and
-mechanical edits to `sonnet` subagents (paths, not contents); reason yourself on the judgment this
-task exists for, and read in full anything you are judging."}
+{Include when role = critical, judge or escalation: "You are on a top tier. Hand searches and
+command runs to `scout`/`runner` and mechanical edits to `mechanical` (paths, not contents); reason
+yourself on the judgment this task exists for, and read in full anything you are judging."}
 
 ABSOLUTE: local only. No `gh pr comment`, `gh pr review`, or `gh issue comment`. Post nothing.
 
